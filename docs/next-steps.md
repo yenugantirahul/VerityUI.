@@ -1,7 +1,7 @@
 # Next steps
 
-## Phase 1 · Deterministic capture
+## Phase 2 · Deterministic comparison
 
-Implement `src/capture` and an analytics fixture in `src/fixture`. Add exact browser dependencies, rendering profiles, fixed clock, device scale, readiness and font checks, authenticated storage state, exact-path JSON responses, masks, capture metadata, stable errors and resource cleanup. Add a compiled smoke command and documented image profile. Use only the operator-controlled fixture origin. Browser rendering, redirects, runaway page area and context leaks are the main risks.
+Implement `src/compare` using Pixelmatch and pngjs. Validate dimensions and decoding bounds, classify missing or incompatible images, and expose configurable color and area thresholds. Produce an exact changed-pixel mask, region bounds, a heatmap and an overlay. Exercise seeded defect variants with browser captures and provide a compiled evidence demo.
 
-Run `npm run verify` with the pinned browser builds installed, plus a compiled fixture capture. Require byte repeatability, viewport and scale correctness, stable masked output, working authentication and mocks, closed contexts, and classified failures before Phase 2.
+Run `npm run verify`, `npm run compare:demo` and the comparison benchmark. Require the seeded defects to exceed policy or report incompatible dimensions, and the identity and cosmetic cases to meet their declared policy. Record comparison time, process peak RSS, and limitations before Phase 3.

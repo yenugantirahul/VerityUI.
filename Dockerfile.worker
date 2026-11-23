@@ -1,0 +1,10 @@
+FROM node:24.20.0-bookworm@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright DELTAFRAME_RENDERER=bookworm-node24.20.0-playwright1.64.1
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci && npx playwright install --with-deps --no-shell chromium firefox webkit
+COPY tsconfig*.json ./
+COPY src ./src
+RUN npm run build && npm prune --omit=dev && mkdir -p /app/data && chown node:node /app/data
+USER node
+CMD ["node", "dist/fixture/capture-demo.js"]

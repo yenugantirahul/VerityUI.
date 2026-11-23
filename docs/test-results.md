@@ -18,3 +18,16 @@
 The first watch-server launch overlapped with `npm start` and reported `EADDRINUSE`. Running the watch server on a separate configured port passed. GitHub workflow commands were verified locally. Hosted Actions execution requires a remote repository.
 
 Proposed targets and acceptance criteria are listed in `requirements.md` and `roadmap.md`.
+
+## Phase 1 · Deterministic capture
+
+| Command                                                    | Expected                                                                                       | Observed                                                                                                                                                                                |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused Chromium tests in `tests/capture.test.ts`          | Repeatability, masks, mobile and HiDPI dimensions, sessions, mocks, typed failures and cleanup | 6 passed, 0 failed in 21.1 seconds. Desktop output matched byte for byte across 10 fresh browser instances.                                                                             |
+| `npm run build` then `npm run capture:demo`                | Compiled fixture writes PNG and metadata                                                       | Exit 0. Inspected a 1200 × 807 image of the KPI cards, chart and table, 32,703 bytes. Chromium 156.0.8078.4 captured it in 1,059 ms.                                                    |
+| `docker buildx imagetools inspect node:24.20.0-bookworm`   | Resolve pinned worker base manifest                                                            | Resolved the multi-platform digest tracked by `Dockerfile.worker`.                                                                                                                      |
+| `docker build -f Dockerfile.worker -t deltaframe-worker .` | Build worker image                                                                             | Local Linux engine socket unavailable. Launching Docker Desktop through the shell was rejected by the execution policy. Native browser verification is independent of the worker image. |
+
+The source test runner rejected a TypeScript constructor parameter property. The class now declares its fields explicitly and TypeScript enforces erasable syntax in development and tests. The demo revealed that full-page height can exceed viewport height because of scrollable content. The test now verifies full-page and viewport dimensions independently.
+
+An initial Firefox repeat differed by three compressed bytes in length. The engine now waits for two animation frames after page readiness and font loading so the browser can paint settled content. The full `npm run verify` exited 0 with 10 passing tests in 44.1 seconds. Chromium, Firefox and WebKit each produced 10 byte-identical desktop captures. The lockfile audit found zero reported vulnerabilities.

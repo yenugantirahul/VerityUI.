@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "node --watch src/server/main.ts",
     "start": "node dist/server/main.js",
+    "capture:demo": "node dist/fixture/capture-demo.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -19,7 +20,8 @@
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run build && npm test"
   },
   "dependencies": {
-    "fastify": "5.12.8"
+    "fastify": "5.12.8",
+    "playwright": "1.64.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
