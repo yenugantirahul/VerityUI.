@@ -1,7 +1,12 @@
 import Fastify from 'fastify';
+import { registerExecutionApi, type ExecutionApi } from './execution-api.ts';
 
-export function createApp(logger = false) {
-  const app = Fastify({ logger, bodyLimit: 128 * 1024 });
+export function createApp(logger = false, execution?: ExecutionApi) {
+  const app = Fastify({
+    logger,
+    bodyLimit: 128 * 1024,
+    ajv: { customOptions: { removeAdditional: false } },
+  });
   app.get('/healthz', {
     schema: {
       response: {
@@ -14,6 +19,11 @@ export function createApp(logger = false) {
     },
     handler: () => ({ status: 'ok' }),
   });
+  if (execution) {
+    void app.register(async (api) => registerExecutionApi(api, execution), {
+      prefix: '/api/v1',
+    });
+  }
   return app;
 }
 

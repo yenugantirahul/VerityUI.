@@ -48,10 +48,20 @@ export async function testDatabase() {
   });
   const connectionString = `postgresql://deltaframe_test:${password}@127.0.0.1:${port}/postgres`;
   const pool = openDatabase(connectionString);
-  let stopCluster: (() => Promise<unknown>) | undefined;
+  let startCluster: () => Promise<unknown> = () => cluster.start();
+  let stopCluster: () => Promise<unknown> = () => cluster.stop();
+  let running = false;
+  async function resume() {
+    await startCluster();
+    running = true;
+  }
+  async function pause() {
+    if (running) await stopCluster();
+    running = false;
+  }
   async function close() {
     await pool.end();
-    await stopCluster?.();
+    await pause();
     await rm(directory, { recursive: true, force: true, maxRetries: 3 });
   }
   try {
@@ -63,39 +73,39 @@ export async function testDatabase() {
       const data = join(directory, 'postgres');
       const logPath = join(directory, 'postgres.log');
       const options = { windowsHide: true, timeout: 30000 };
-      try {
-        await run(
-          pg_ctl,
-          [
-            'start',
-            '-w',
-            '-t',
-            '15',
-            '-D',
-            data,
-            '-l',
-            logPath,
-            '-o',
-            `-h 127.0.0.1 -p ${port}`,
-          ],
-          options,
-        );
-      } catch (error) {
-        log(
-          await readFile(logPath, 'utf8').catch(
-            () => 'Postmaster log unavailable',
-          ),
-        );
-        throw error;
-      }
+      startCluster = async () => {
+        try {
+          await run(
+            pg_ctl,
+            [
+              'start',
+              '-w',
+              '-t',
+              '15',
+              '-D',
+              data,
+              '-l',
+              logPath,
+              '-o',
+              `-h 127.0.0.1 -p ${port}`,
+            ],
+            options,
+          );
+        } catch (error) {
+          log(
+            await readFile(logPath, 'utf8').catch(
+              () => 'Postmaster log unavailable',
+            ),
+          );
+          throw error;
+        }
+      };
       stopCluster = () =>
         run(pg_ctl, ['stop', '-w', '-m', 'fast', '-D', data], options);
-    } else {
-      await cluster.start();
-      stopCluster = () => cluster.stop();
     }
+    await resume();
     await migrate(pool);
-    return { directory, pool, close };
+    return { directory, pool, connectionString, close, pause, resume };
   } catch (error) {
     await close().catch(() => undefined);
     throw new Error(

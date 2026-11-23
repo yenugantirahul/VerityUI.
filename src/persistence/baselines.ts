@@ -12,7 +12,7 @@ export interface BaselineScope {
   actorId: string;
 }
 
-type Role = 'admin' | 'reviewer' | 'developer' | 'viewer';
+export type Role = 'admin' | 'reviewer' | 'developer' | 'viewer';
 type ReviewAction = 'approve' | 'reject' | 'rollback';
 
 export interface BaselineVersion {
@@ -104,7 +104,7 @@ const versionColumns =
   'id, identity, version, status, based_on_id, artifact_digest, artifact_bytes, metadata, created_at';
 const keyCondition = 'org_id = $1 AND project_id = $2 AND identity = $3';
 
-async function authorize(
+export async function authorizeProject(
   database: Pool | PoolClient,
   scope: BaselineScope,
   allowed?: readonly Role[],
@@ -142,7 +142,7 @@ export class Baselines {
   }
 
   async active(scope: BaselineScope, identity: string) {
-    await authorize(this.database, scope);
+    await authorizeProject(this.database, scope);
     const { rows } = await this.database.query<BaselineVersion>(
       `
       SELECT ${versionColumns} FROM baseline_versions
@@ -154,7 +154,7 @@ export class Baselines {
   }
 
   async history(scope: BaselineScope, identity: string) {
-    await authorize(this.database, scope);
+    await authorizeProject(this.database, scope);
     const { rows } = await this.database.query<BaselineVersion>(
       `
       SELECT ${versionColumns} FROM baseline_versions WHERE ${keyCondition} ORDER BY version DESC
@@ -165,7 +165,7 @@ export class Baselines {
   }
 
   async artifact(scope: BaselineScope, id: string) {
-    await authorize(this.database, scope);
+    await authorizeProject(this.database, scope);
     const version = await this.findVersion(this.database, scope, id);
     return this.artifacts.get(scope.organizationId, reference(version));
   }
@@ -175,9 +175,10 @@ export class Baselines {
     identity: string,
     basedOn: string | null,
     capture: CaptureResult,
+    sourceJobId?: string,
   ) {
     const allowed = ['admin', 'reviewer', 'developer'] as const;
-    await authorize(this.database, scope, allowed);
+    await authorizeProject(this.database, scope, allowed);
     const image = readImage(capture.png);
     if (
       !/^[0-9a-f]{64}$/.test(identity) ||
@@ -196,7 +197,7 @@ export class Baselines {
       capture.png,
     );
     return transaction(this.database, async (client) => {
-      await authorize(client, scope, allowed);
+      await authorizeProject(client, scope, allowed);
       const key = [scope.organizationId, scope.projectId, identity];
       await client.query(
         `INSERT INTO baseline_keys (org_id, project_id, identity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
@@ -209,6 +210,23 @@ export class Baselines {
         key,
       );
       const active = pointers[0]!.active_id;
+      if (sourceJobId) {
+        const existing = await client.query<BaselineVersion>(
+          `SELECT ${versionColumns} FROM baseline_versions WHERE ${keyCondition} AND source_job_id = $4`,
+          [...key, sourceJobId],
+        );
+        if (existing.rows[0]) return existing.rows[0];
+        const job = await client.query(
+          `
+          SELECT jobs.id FROM jobs JOIN runs ON runs.id = jobs.run_id
+          WHERE runs.org_id = $1 AND runs.project_id = $2 AND jobs.result->>'identity' = $3
+            AND jobs.id = $4 AND jobs.state = 'completed'
+        `,
+          [...key, sourceJobId],
+        );
+        if (!job.rowCount)
+          throw new BaselineError('not_found', 'Source capture was not found');
+      }
       if (active !== basedOn)
         throw new BaselineError(
           'conflict',
@@ -216,8 +234,8 @@ export class Baselines {
         );
       const { rows } = await client.query<BaselineVersion>(
         `
-        INSERT INTO baseline_versions (org_id, project_id, identity, id, version, status, based_on_id, artifact_digest, artifact_bytes, metadata, created_by)
-        VALUES ($1, $2, $3, $4, (SELECT COALESCE(max(version), 0) + 1 FROM baseline_versions WHERE ${keyCondition}), 'candidate', $5, $6, $7, $8, $9)
+        INSERT INTO baseline_versions (org_id, project_id, identity, id, version, status, based_on_id, artifact_digest, artifact_bytes, metadata, created_by, source_job_id)
+        VALUES ($1, $2, $3, $4, (SELECT COALESCE(max(version), 0) + 1 FROM baseline_versions WHERE ${keyCondition}), 'candidate', $5, $6, $7, $8, $9, $10)
         RETURNING ${versionColumns}
       `,
         [
@@ -228,6 +246,7 @@ export class Baselines {
           artifact.sizeBytes,
           capture.metadata,
           scope.actorId,
+          sourceJobId ?? null,
         ],
       );
       const version = rows[0]!;
@@ -243,7 +262,7 @@ export class Baselines {
     expectedActive?: string | null,
   ) {
     return transaction(this.database, async (client) => {
-      await authorize(client, scope, ['admin', 'reviewer']);
+      await authorizeProject(client, scope, ['admin', 'reviewer']);
       const { identity } = await this.findVersion(client, scope, id);
       const key = [scope.organizationId, scope.projectId, identity];
       const { rows: pointers } = await client.query<{

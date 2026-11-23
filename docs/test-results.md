@@ -60,3 +60,9 @@ Known limits include platform-dependent glyph rasterization, merging near change
 The baseline test uses two real browser captures and real database locks. One of two competing promotions succeeded. The losing candidate remained reviewable, rejection preserved history, and rollback moved the pointer back without mutating either artifact. Access was denied for a viewer attempting approval and a second organization using the same project identifier. A filesystem write obstruction left no candidate and retry succeeded after clearing it. Independently, write-once artifact tests detected corruption without replacing the original digest key.
 
 The direct Windows postmaster rejected the elevated shell. The harness now uses PostgreSQL's `pg_ctl` on Windows, which starts the server with a restricted token. The test verifies the real server version and stops the temporary cluster. [PostgreSQL Windows startup code](https://github.com/postgres/postgres/blob/master/src/bin/pg_ctl/pg_ctl.c)
+
+## Phase 4 · Execution API and worker
+
+`npm run verify` exited 0 with formatting, lint, type checking, build, and 17 passing tests in 84.8 seconds. The pipeline test made real HTTP requests and used PostgreSQL 18, Chromium and the local artifact store. A concurrent duplicate request produced one run. An initial result became an approved baseline, then a changed run exposed its private diff. The test stopped a separate worker process after a durable claim and confirmed that a replacement could reclaim its expired lease and fence old writes.
+
+The test also stopped PostgreSQL, observed a 503 from the API and a queue claim failure, restarted the same data directory, and resumed work. A transient write failure requeued the job. Cancelling an active job prevented its late completion. A run with two checkpoints stored a successful match alongside a terminal timeout after three attempts. The API routes and persistence contracts are documented in `api.md`.

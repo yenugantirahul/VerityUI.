@@ -1,7 +1,7 @@
 # Next steps
 
-## Phase 4 · Asynchronous run execution
+## Phase 5 · Review dashboard
 
-Add persisted suite revisions, API contracts and a PostgreSQL job queue. Create runs and work in one transaction. Use bounded attempts, leased claims, fenced completion, cancellation, and private stored evidence. Scope all control-plane requests to an authenticated local operator. Keep the worker limited to operator-controlled analytics fixtures until the network-isolation gate.
+Build and serve `web/` using React and Vite. Add loopback operator login with server-managed sessions, project and suite controls, run history, selected checkpoint evidence, and explicit approval and rejection. Use the same API for the UI and developer automation. Main risks are stale selections, session expiry, accessibility and rendering the evidence on small viewports.
 
-Verify asynchronous submission, duplicate requests, concurrent workers, interrupted attempts, transient storage errors, stopped database connections, cancellation, partial results and artifacts with a real browser and temporary PostgreSQL instances. Run the complete suite before opening the dashboard phase.
+Run web type checking, production build and Playwright E2E against the compiled dashboard, a live local API, a real worker and a real PostgreSQL database. Exercise authentication, new projects, queued runs, visual evidence, review decisions and mobile layout.

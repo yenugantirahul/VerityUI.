@@ -3,12 +3,16 @@ import { readFile, readdir } from 'node:fs/promises';
 import pg, { type PoolClient } from 'pg';
 
 export function openDatabase(connectionString: string) {
-  return new pg.Pool({
+  const pool = new pg.Pool({
     connectionString,
     max: 8,
     connectionTimeoutMillis: 5000,
     statement_timeout: 15000,
   });
+  pool.on('error', () =>
+    console.error(JSON.stringify({ event: 'idle_database_connection_closed' })),
+  );
+  return pool;
 }
 
 export async function transaction<T>(

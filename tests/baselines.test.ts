@@ -53,9 +53,13 @@ test(
     assert.match(version.rows[0]!.version, /^PostgreSQL 18\./);
     context.diagnostic(version.rows[0]!.version);
     await migrate(pool);
-    assert.equal(
-      (await pool.query('SELECT * FROM schema_migrations')).rowCount,
-      1,
+    assert.deepEqual(
+      (
+        await pool.query<{ name: string }>(
+          'SELECT name FROM schema_migrations ORDER BY name',
+        )
+      ).rows.map(({ name }) => name),
+      ['001_baselines.sql', '002_execution.sql'],
     );
 
     const projectId = randomUUID();

@@ -13,7 +13,7 @@ npm run verify
 npm start
 ```
 
-Visit `http://127.0.0.1:4310/healthz` to check the compiled service. `npm run dev` starts it with file watching. The service listens on loopback. Set `PORT` in the process environment, or copy `.env.example` to `.env` and run `node --env-file=.env dist/server/main.js` after a build.
+Visit `http://127.0.0.1:4310/healthz` to check the compiled service. `npm run dev` starts it with file watching. The service listens on loopback and loads `.env` when present. Set `PORT` in that file or in the process environment.
 
 Keep credentials in process environment or a scoped secret store. Keep local `.env` files and Playwright authentication state outside version control. CI uses the lockfile and the Node version in `.node-version`.
 
@@ -49,6 +49,10 @@ The baseline service in `src/persistence/baselines.ts` tracks candidates, approv
 The integration test starts a temporary real PostgreSQL instance, applies migrations, and exercises capture, approval, comparison, authorization and rollback. It does not require Docker. Run `node --test tests/baselines.test.ts` to focus on persistence.
 
 For a persistent development database, copy `.env.example` to `.env`, set `DELTAFRAME_DB_PASSWORD` and `DATABASE_URL`, then use `docker compose up -d database`. `DATABASE_URL` can also point to a dedicated PostgreSQL 18 database running locally. Run `npm run build` and `npm run db:migrate` after the database accepts connections.
+
+## Run the API and worker
+
+With migrations applied, set a random `DELTAFRAME_API_TOKEN` in `.env`. Use at least 32 characters without whitespace. Run `npm start` in one terminal and `npm run worker` in another. Both processes use the same database and local `ARTIFACT_DIR`. The worker captures the bundled analytics fixture, compares approved baselines, and saves private PNG evidence. Use the [execution API](docs/api.md) for run submission and review.
 
 ## Engineering docs
 

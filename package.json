@@ -8,8 +8,9 @@
     "npm": ">=11"
   },
   "scripts": {
-    "dev": "node --watch src/server/main.ts",
-    "start": "node dist/server/main.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server/main.ts",
+    "start": "node --env-file-if-exists=.env dist/server/main.js",
+    "worker": "node --env-file-if-exists=.env dist/execution/worker-main.js",
     "capture:demo": "node dist/fixture/capture-demo.js",
     "compare:demo": "node dist/fixture/compare-demo.js",
     "benchmark:compare": "node dist/fixture/compare-demo.js color --benchmark",

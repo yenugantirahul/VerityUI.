@@ -56,9 +56,10 @@ sequenceDiagram
     Operator->>API: Create run with suite revision and idempotency key
     API->>DB: Commit run plus jobs atomically
     API-->>Operator: 202 and run ID
-    Worker->>DB: Claim job with lease and active baseline snapshot
+    Worker->>DB: Claim job with a fenced lease
     Worker->>Browser: Open isolated context and capture checkpoint
     Browser-->>Worker: PNG and capture metadata
+    Worker->>DB: Read active baseline for the captured profile
     Worker->>Objects: Verify baseline and write immutable evidence
     Worker->>DB: Commit leased result and artifact references
     Operator->>API: Read result and compare images
