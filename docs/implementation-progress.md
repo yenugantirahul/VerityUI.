@@ -5,6 +5,7 @@
 | Workspace and architecture      | Complete    | Empty workspace with no Git repository. Requirements, decisions, diagrams, roadmap and risks reviewed against the brief. |
 | Phase 0 · Local toolchain       | PASS        | Clean install, formatting, lint, type-check, build, two tests and live health responses verified.                        |
 | Phase 1 · Deterministic capture | PASS        | All native checks passed, including 10 byte-identical captures per engine. Container smoke is environment-blocked.       |
-| Phase 2 · Comparison            | In progress | Implement PNG evidence and test known defects.                                                                           |
+| Phase 2 · Comparison            | PASS        | 14 tests passed. Seeded defects detected, PNG evidence inspected, and comparison time and memory measured.               |
+| Phase 3 · Baselines             | In progress | Implement durable baseline versions, artifacts, reviews and audit events.                                                |
 
 See `test-results.md` for command evidence and `next-steps.md` for the active phase plan.

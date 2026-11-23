@@ -30,6 +30,18 @@ The command starts a trusted fixture on an ephemeral loopback port, captures the
 
 The test worker image definition pins Node and retrieves the exact Playwright browser versions from the lockfile. With a local Docker engine, build it using `docker build -f Dockerfile.worker -t deltaframe-worker .` and run its fixture smoke command with `docker run --init --rm deltaframe-worker`.
 
+## Compare a seeded visual change
+
+```sh
+npm run build
+npm run compare:demo -- color
+npm run benchmark:compare
+```
+
+Open `data/demo/color/comparison.json` for dimensions, changed-pixel counts, thresholds, and bounding boxes. The PNGs include the baseline, current image, changed pixels in magenta, a density heatmap, and a 50/50 overlay. Try `original`, `missing`, `shift`, `overflow`, `clipped`, `typography`, or `cosmetic` to change the seeded fixture.
+
+`src/compare/compare.ts` exposes the same engine. `pixelThreshold` is the per-pixel perceptual tolerance between 0 and 1. A comparable image fails when both `maxChangedPixels` and `maxChangedRatio` are exceeded. A comparison with no baseline or different dimensions has its own status and skips pixel counts. For changed pixels within the configured area tolerance, the engine still returns their evidence.
+
 ## Engineering docs
 
 - [Requirements and measurable objectives](docs/requirements.md)

@@ -57,7 +57,7 @@ export function analyticsPage(
   .shift .chart { transform: translateX(18px); }
   .overflow .plot { width: calc(100% + 90px); }
   .clipped .plot { clip-path: inset(35% 0 0 0); }
-  .typography .kpi strong { font-size: 20px; font-weight: 400; }
+  .typography .kpi strong { font-size: 20px; line-height: 37.5px; font-weight: 400; }
   .cosmetic .chart h2 { color: #212a3f; }
   .tall main { min-height: 150000px; }
   @media (max-width: 560px) {

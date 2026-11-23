@@ -1,7 +1,7 @@
 # Next steps
 
-## Phase 2 · Deterministic comparison
+## Phase 3 · Baseline persistence
 
-Implement `src/compare` using Pixelmatch and pngjs. Validate dimensions and decoding bounds, classify missing or incompatible images, and expose configurable color and area thresholds. Produce an exact changed-pixel mask, region bounds, a heatmap and an overlay. Exercise seeded defect variants with browser captures and provide a compiled evidence demo.
+Add versioned PostgreSQL migrations, a filesystem artifact store for the trusted local deployment, deterministic baseline keys, and transactions for approval, rejection and rollback. Scope each query to the project organization and actor. Use native PostgreSQL integration tests because the Docker engine is unavailable. Test write failures, conflicting approvals and storage integrity before adding API routes or workers.
 
-Run `npm run verify`, `npm run compare:demo` and the comparison benchmark. Require the seeded defects to exceed policy or report incompatible dimensions, and the identity and cosmetic cases to meet their declared policy. Record comparison time, process peak RSS, and limitations before Phase 3.
+Run `npm run verify`, including a real PostgreSQL integration suite and temporary filesystem objects. Verify write-once artifacts, distinct baseline identities, change history, stale approval rejection, rollback, tenant and role enforcement, and recovery after transient object write errors.

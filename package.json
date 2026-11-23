@@ -11,6 +11,8 @@
     "dev": "node --watch src/server/main.ts",
     "start": "node dist/server/main.js",
     "capture:demo": "node dist/fixture/capture-demo.js",
+    "compare:demo": "node dist/fixture/compare-demo.js",
+    "benchmark:compare": "node dist/fixture/compare-demo.js color --benchmark",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -21,11 +23,14 @@
   },
   "dependencies": {
     "fastify": "5.12.8",
-    "playwright": "1.64.1"
+    "pixelmatch": "8.0.0",
+    "playwright": "1.64.1",
+    "pngjs": "7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.19.2",
+    "@types/pngjs": "6.0.5",
     "eslint": "10.15.0",
     "prettier": "3.10.1",
     "typescript": "6.0.3",
