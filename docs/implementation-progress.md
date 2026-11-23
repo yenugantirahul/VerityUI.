@@ -8,6 +8,7 @@
 | Phase 2 · Comparison            | PASS        | 14 tests passed. Seeded defects detected, PNG evidence inspected, and comparison time and memory measured.               |
 | Phase 3 · Baselines             | PASS        | PostgreSQL 18.7 integration, immutable artifact tests, authorization, conflicting approvals and rollback passed.         |
 | Phase 4 · Execution API         | PASS        | Real HTTP, browser capture, worker termination and PostgreSQL restart integration passed.                                |
-| Phase 5 · Review dashboard      | In progress | Build the local project, run and evidence review interface.                                                              |
+| Phase 5 · Review dashboard      | PASS        | 18 tests passed, including browser sign-in, workspace authorization, evidence controls, review and mobile layout.        |
+| Phase 6 · Evidence analysis     | In progress | Evaluate versioned diagnostic rules against labeled fixture captures.                                                    |
 
 See `test-results.md` for command evidence and `next-steps.md` for the active phase plan.

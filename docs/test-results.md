@@ -66,3 +66,9 @@ The direct Windows postmaster rejected the elevated shell. The harness now uses 
 `npm run verify` exited 0 with formatting, lint, type checking, build, and 17 passing tests in 84.8 seconds. The pipeline test made real HTTP requests and used PostgreSQL 18, Chromium and the local artifact store. A concurrent duplicate request produced one run. An initial result became an approved baseline, then a changed run exposed its private diff. The test stopped a separate worker process after a durable claim and confirmed that a replacement could reclaim its expired lease and fence old writes.
 
 The test also stopped PostgreSQL, observed a 503 from the API and a queue claim failure, restarted the same data directory, and resumed work. A transient write failure requeued the job. Cancelling an active job prevented its late completion. A run with two checkpoints stored a successful match alongside a terminal timeout after three attempts. The API routes and persistence contracts are documented in `api.md`.
+
+## Phase 5 · Review dashboard
+
+`npm run verify` passed formatting, lint, server and web type-checking, both production builds and 18 tests in 86.8 seconds. Vite produced a 73.0 KiB gzipped JavaScript bundle. The real Chromium end-to-end test covered invalid and valid login, HttpOnly and SameSite cookie flags, authorized workspace selection, viewer restrictions, rejection of an unrelated workspace and cross-origin submission, project and suite creation, run execution, real PNG evidence, keyboard slider operation, baseline approval, rejection, history after reload, sign-out and forbidden private evidence. The viewport fit the page at 390 CSS pixels.
+
+The verified dashboard screenshot is generated at `data/demo/workspace.png`. Workspace sessions live in one local API process. Persisted projects, runs, captures and reviews survive session expiration. The hosted authentication and worker isolation gates remain separate.

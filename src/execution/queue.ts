@@ -89,6 +89,18 @@ export class RunQueue {
     this.pool = pool;
   }
 
+  async workspaces(actorId: string) {
+    return (
+      await this.pool.query<{ id: string; name: string }>(
+        `
+      SELECT o.id, o.name FROM organizations o JOIN memberships m ON m.org_id = o.id
+      WHERE m.principal_id = $1 ORDER BY o.name, o.id
+    `,
+        [actorId],
+      )
+    ).rows;
+  }
+
   async projects(actor: Operator) {
     return (
       await this.pool.query<{ id: string; name: string }>(

@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   executionServices,
   initializeLocalOperator,
@@ -12,6 +14,7 @@ if (connection && (!token || !/^\S{32,512}$/.test(token))) {
   );
 }
 const runtime = connection ? executionServices(connection) : undefined;
+const webRoot = resolve('web-dist');
 let app: ReturnType<typeof createApp> | undefined;
 
 try {
@@ -21,6 +24,7 @@ try {
   app = createApp(
     true,
     runtime && operator && token ? { ...runtime, operator, token } : undefined,
+    existsSync(webRoot) ? webRoot : undefined,
   );
   if (runtime) app.addHook('onClose', () => runtime.pool.end());
   await app.listen({ host: '127.0.0.1', port: parsePort(process.env.PORT) });

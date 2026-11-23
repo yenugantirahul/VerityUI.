@@ -170,6 +170,17 @@ export class Baselines {
     return this.artifacts.get(scope.organizationId, reference(version));
   }
 
+  async candidateForJob(scope: BaselineScope, jobId: string) {
+    await authorizeProject(this.database, scope);
+    const { rows } = await this.database.query<BaselineVersion>(
+      `
+      SELECT ${versionColumns} FROM baseline_versions WHERE org_id = $1 AND project_id = $2 AND source_job_id = $3
+    `,
+      [scope.organizationId, scope.projectId, jobId],
+    );
+    return rows[0] ?? null;
+  }
+
   async createCandidate(
     scope: BaselineScope,
     identity: string,

@@ -54,6 +54,15 @@ For a persistent development database, copy `.env.example` to `.env`, set `DELTA
 
 With migrations applied, set a random `DELTAFRAME_API_TOKEN` in `.env`. Use at least 32 characters without whitespace. Run `npm start` in one terminal and `npm run worker` in another. Both processes use the same database and local `ARTIFACT_DIR`. The worker captures the bundled analytics fixture, compares approved baselines, and saves private PNG evidence. Use the [execution API](docs/api.md) for run submission and review.
 
+## Open the review dashboard
+
+```sh
+npm run build
+npm run demo
+```
+
+The demo starts a real temporary PostgreSQL server, API and worker on loopback. Open the printed URL and sign in using the temporary operator token shown in your terminal. In Harbor Analytics, start the **Original fixture** run and approve its baseline. Start **Chart recolor** to inspect the diff, heatmap, overlay and before/after slider. Press Ctrl+C to stop the demo and clear its temporary workspace. The persistent local setup uses `npm start` and `npm run worker` and serves the same dashboard at the API root.
+
 ## Engineering docs
 
 - [Requirements and measurable objectives](docs/requirements.md)

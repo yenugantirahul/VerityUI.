@@ -9,6 +9,8 @@ import {
 export async function startFixture(
   initialVariant: FixtureVariant = 'original',
 ) {
+  if (!fixtureVariants.includes(initialVariant))
+    throw new Error('Unknown analytics fixture variant');
   const app = Fastify({ bodyLimit: 4096 });
   let variant = initialVariant;
   let refreshes = 0;

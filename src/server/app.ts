@@ -1,7 +1,13 @@
+import cookie from '@fastify/cookie';
+import serveStatic from '@fastify/static';
 import Fastify from 'fastify';
 import { registerExecutionApi, type ExecutionApi } from './execution-api.ts';
 
-export function createApp(logger = false, execution?: ExecutionApi) {
+export function createApp(
+  logger = false,
+  execution?: ExecutionApi,
+  webRoot?: string,
+) {
   const app = Fastify({
     logger,
     bodyLimit: 128 * 1024,
@@ -20,9 +26,20 @@ export function createApp(logger = false, execution?: ExecutionApi) {
     handler: () => ({ status: 'ok' }),
   });
   if (execution) {
+    void app.register(cookie);
     void app.register(async (api) => registerExecutionApi(api, execution), {
       prefix: '/api/v1',
     });
+  }
+  if (webRoot) {
+    app.addHook('onSend', async (_request, reply) => {
+      reply.header('X-Content-Type-Options', 'nosniff');
+      reply.header(
+        'Content-Security-Policy',
+        "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+      );
+    });
+    void app.register(serveStatic, { root: webRoot, index: ['index.html'] });
   }
   return app;
 }

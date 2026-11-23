@@ -1,7 +1,7 @@
 # Next steps
 
-## Phase 5 · Review dashboard
+## Phase 6 · Evidence analysis
 
-Build and serve `web/` using React and Vite. Add loopback operator login with server-managed sessions, project and suite controls, run history, selected checkpoint evidence, and explicit approval and rejection. Use the same API for the UI and developer automation. Main risks are stale selections, session expiry, accessibility and rendering the evidence on small viewports.
+Extract visual evidence features, implement versioned diagnostic rules, and evaluate them against labeled browser captures. Save human feedback against the analysis version. Keep authoritative pixel results and approval decisions independent of advisory findings. Start with CPU-only rules. Compare an optional model only when the labeled results show room for a demonstrated improvement.
 
-Run web type checking, production build and Playwright E2E against the compiled dashboard, a live local API, a real worker and a real PostgreSQL database. Exercise authentication, new projects, queued runs, visual evidence, review decisions and mobile layout.
+Run the full suite and a separate evaluation over multiple rendering profiles. Record class precision, recall, F1, false positives and negatives, localization evidence, latency and explanation checks. If measured value fails the acceptance criteria, keep automatic inference gated and preserve the deterministic pipeline.
