@@ -47,3 +47,16 @@ The first typography fixture changed both font metrics and the page height. The 
 A direct DOM inspection of the eight Chromium fixture variants measured an 18 px chart shift, a 72 px plot overhang beyond the chart container, a hidden sessions KPI, a changed clip path, and a reduced KPI font size from 25 to 20 px. These signals classified five of six seeded defects. Color-only and cosmetic tint changes had identical geometry to the reference. The screenshot engine detected all six seeded defects using pixel and dimension checks under the default policy. Use DOM checks in the analytics phase for precise explanations and explicit content assertions. Pixel evidence stays the initial review source.
 
 Known limits include platform-dependent glyph rasterization, merging near changes into the same 16 px tile group, and differences below the chosen thresholds. Run one comparison per initial worker and benchmark maximum dimensions before raising concurrency. A sample benchmark with one workstation and one viewport gives no staging SLO evidence.
+
+## Phase 3 · Baseline persistence
+
+| Command                               | Expected                                    | Observed                                                                                             |
+| ------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `node --test tests/baselines.test.ts` | Real database and write-once artifact tests | 2 passed. PostgreSQL 18.7 x86-64 Windows verified.                                                   |
+| `npm run verify`                      | Formatting, lint, types, build, full suite  | Exit 0. 16 passed and 0 failed in 46.5 seconds.                                                      |
+| `docker compose config --quiet`       | Validate PostgreSQL service definition      | Exit 0. Registry resolved the PostgreSQL 18.7 image digest. Engine unavailable for container launch. |
+| `npm audit --audit-level=high`        | Dependency audit                            | Exit 0, zero findings reported.                                                                      |
+
+The baseline test uses two real browser captures and real database locks. One of two competing promotions succeeded. The losing candidate remained reviewable, rejection preserved history, and rollback moved the pointer back without mutating either artifact. Access was denied for a viewer attempting approval and a second organization using the same project identifier. A filesystem write obstruction left no candidate and retry succeeded after clearing it. Independently, write-once artifact tests detected corruption without replacing the original digest key.
+
+The direct Windows postmaster rejected the elevated shell. The harness now uses PostgreSQL's `pg_ctl` on Windows, which starts the server with a restricted token. The test verifies the real server version and stops the temporary cluster. [PostgreSQL Windows startup code](https://github.com/postgres/postgres/blob/master/src/bin/pg_ctl/pg_ctl.c)

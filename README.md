@@ -42,6 +42,14 @@ Open `data/demo/color/comparison.json` for dimensions, changed-pixel counts, thr
 
 `src/compare/compare.ts` exposes the same engine. `pixelThreshold` is the per-pixel perceptual tolerance between 0 and 1. A comparable image fails when both `maxChangedPixels` and `maxChangedRatio` are exceeded. A comparison with no baseline or different dimensions has its own status and skips pixel counts. For changed pixels within the configured area tolerance, the engine still returns their evidence.
 
+## Baseline persistence
+
+The baseline service in `src/persistence/baselines.ts` tracks candidates, approved history and audit events in PostgreSQL. It stores PNGs by SHA-256 in a private local directory. Initial candidate approval requires the reviewer or admin role. Promotion uses the active version seen by the capture and rollback uses the active version seen by the reviewer. When competing approvals target the same active version, one succeeds and the stale candidate remains reviewable.
+
+The integration test starts a temporary real PostgreSQL instance, applies migrations, and exercises capture, approval, comparison, authorization and rollback. It does not require Docker. Run `node --test tests/baselines.test.ts` to focus on persistence.
+
+For a persistent development database, copy `.env.example` to `.env`, set `DELTAFRAME_DB_PASSWORD` and `DATABASE_URL`, then use `docker compose up -d database`. `DATABASE_URL` can also point to a dedicated PostgreSQL 18 database running locally. Run `npm run build` and `npm run db:migrate` after the database accepts connections.
+
 ## Engineering docs
 
 - [Requirements and measurable objectives](docs/requirements.md)

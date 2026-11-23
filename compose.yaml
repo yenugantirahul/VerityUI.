@@ -1,0 +1,19 @@
+services:
+  database:
+    image: postgres:18.7-bookworm@sha256:194e55feb2597b1465dbee81cc9fd8d204566cd2eb42c8d22fd6c931a38781b1
+    environment:
+      POSTGRES_USER: deltaframe
+      POSTGRES_DB: deltaframe
+      POSTGRES_PASSWORD: ${DELTAFRAME_DB_PASSWORD:?Set a local database password}
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - deltaframe_database:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'deltaframe', '-d', 'deltaframe']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  deltaframe_database:

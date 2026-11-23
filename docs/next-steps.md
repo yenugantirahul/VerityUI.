@@ -1,7 +1,7 @@
 # Next steps
 
-## Phase 3 · Baseline persistence
+## Phase 4 · Asynchronous run execution
 
-Add versioned PostgreSQL migrations, a filesystem artifact store for the trusted local deployment, deterministic baseline keys, and transactions for approval, rejection and rollback. Scope each query to the project organization and actor. Use native PostgreSQL integration tests because the Docker engine is unavailable. Test write failures, conflicting approvals and storage integrity before adding API routes or workers.
+Add persisted suite revisions, API contracts and a PostgreSQL job queue. Create runs and work in one transaction. Use bounded attempts, leased claims, fenced completion, cancellation, and private stored evidence. Scope all control-plane requests to an authenticated local operator. Keep the worker limited to operator-controlled analytics fixtures until the network-isolation gate.
 
-Run `npm run verify`, including a real PostgreSQL integration suite and temporary filesystem objects. Verify write-once artifacts, distinct baseline identities, change history, stale approval rejection, rollback, tenant and role enforcement, and recovery after transient object write errors.
+Verify asynchronous submission, duplicate requests, concurrent workers, interrupted attempts, transient storage errors, stopped database connections, cancellation, partial results and artifacts with a real browser and temporary PostgreSQL instances. Run the complete suite before opening the dashboard phase.
