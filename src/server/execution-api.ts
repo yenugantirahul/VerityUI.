@@ -442,6 +442,11 @@ export function registerExecutionApi(app: FastifyInstance, api: ExecutionApi) {
       const result = await getJobResult(request);
       if (!result.evidence.current)
         throw new ExecutionError(404, 'Current capture is unavailable');
+      if (result.checks?.some((check) => !check.passed))
+        throw new ExecutionError(
+          409,
+          'This capture has failed analytics checks',
+        );
       return baselines.createCandidate(
         scope(request, request.params.projectId),
         result.identity,

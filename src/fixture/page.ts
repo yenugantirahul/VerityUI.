@@ -7,6 +7,12 @@ export const fixtureVariants = [
   'clipped',
   'typography',
   'wrong_value',
+  'missing_legend',
+  'overlapping_labels',
+  'filter_broken',
+  'render_error',
+  'table_overflow',
+  'responsive',
   'cosmetic',
   'loading',
   'tall',
@@ -18,6 +24,12 @@ export const fixtureData = {
   sessions: 28316,
   conversion: 3.8,
   values: [28, 44, 38, 61, 49, 73, 65, 82, 70, 89, 77, 96],
+};
+export const weeklyFixtureData = {
+  revenue: 10980,
+  sessions: 6801,
+  conversion: 4.2,
+  values: [31, 54, 47, 58, 79, 83, 94],
 };
 
 export function analyticsPage(
@@ -40,6 +52,9 @@ export function analyticsPage(
   h2 { font-size: 18px; }
   .muted { color: #4b5b72; }
   .summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; }
+  .summary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .summary-actions label { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+  .summary-actions select { font: inherit; padding: 5px 7px; color: #223a57; background: #fff; border: 1px solid #c2d1e3; border-radius: 5px; }
   .dynamic { display: inline-block; width: 112px; height: 28px; text-align: right; font-variant-numeric: tabular-nums; }
   .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 20px 0 16px; }
   .panel { background: #fff; border: 1px solid #dde5ef; padding: 17px; border-radius: 12px; }
@@ -50,6 +65,8 @@ export function analyticsPage(
   .bar:nth-child(even) { background: #5799e1; }
   .bar:last-child { background: #158068; }
   .axis { display: flex; justify-content: space-between; margin-top: 7px; font-size: 14px; }
+  .legend { display: flex; align-items: center; gap: 5px; margin-top: 5px; font-size: 14px; }
+  .legend i { background: #2466cf; width: 10px; height: 10px; border-radius: 2px; }
   table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 8px; }
   th, td { padding: 5px 0; border-bottom: 1px solid #e8eef7; }
   td:last-child, th:last-child { text-align: right; }
@@ -58,10 +75,15 @@ export function analyticsPage(
   .shift .chart { transform: translateX(18px); }
   .overflow .plot { width: calc(100% + 90px); }
   .clipped .plot { clip-path: inset(35% 0 0 0); }
+  .missing_legend .legend { visibility: hidden; }
+  .overlapping_labels .axis { position: relative; }
+  .overlapping_labels .axis span:last-child { position: absolute; left: 0; }
+  .table_overflow table { width: calc(100% + 160px); }
   .typography .kpi strong { font-size: 20px; line-height: 37.5px; font-weight: 400; }
   .cosmetic .chart h2 { color: #212a3f; }
   .tall main { min-height: 150000px; }
   @media (max-width: 560px) {
+    .responsive main { min-width: 660px; }
     main { padding: 22px 14px 14px; }
     header { padding-inline: 14px; }
     .kpis { grid-template-columns: minmax(0,1fr); gap: 8px; }
@@ -75,7 +97,8 @@ export function analyticsPage(
 <main>
   <section class="summary" aria-label="Report summary">
     <div><h1>Commerce overview</h1><p class="muted">Report date <time id="report-date"></time></p></div>
-    <span class="dynamic muted" aria-label="Refresh identifier">${dynamic ? `Refresh ${dynamic}` : 'Refresh 0'}</span>
+    <div class="summary-actions"><label>Date range <select id="date-range"><option value="30d">Last 30 days</option><option value="7d">Last 7 days</option></select></label>
+    <span class="dynamic muted" aria-label="Refresh identifier">${dynamic ? `Refresh ${dynamic}` : 'Refresh 0'}</span></div>
   </section>
   <section class="kpis" aria-label="Key metrics">
     <article class="panel kpi" data-kpi="revenue">Revenue<strong></strong></article>
@@ -84,7 +107,8 @@ export function analyticsPage(
   </section>
   <section class="panel chart" aria-labelledby="chart-title">
     <h2 id="chart-title">Revenue trend</h2><div class="plot" aria-hidden="true"></div>
-    <div class="axis muted"><span>Jan</span><span>Dec</span></div>
+    <div class="axis muted" aria-label="Chart axis"><span>Jan</span><span>Dec</span></div>
+    <div class="legend muted" aria-label="Chart legend"><i aria-hidden="true"></i>Revenue</div>
   </section>
   <section class="panel" aria-labelledby="table-title">
     <h2 id="table-title">Top channels</h2>
@@ -95,8 +119,12 @@ export function analyticsPage(
 <script>
   const date = new Date();
   document.querySelector('#report-date').textContent = new Intl.DateTimeFormat(undefined, {dateStyle: 'medium'}).format(date);
-  async function render() {
-    const response = await fetch('/fixture/metrics');
+  const main = document.querySelector('main');
+  const select = document.querySelector('#date-range');
+  async function render(window) {
+    delete main.dataset.ready;
+    if (document.body.classList.contains('render_error')) throw new Error('Seeded render failure');
+    const response = await fetch(window === '7d' ? '/fixture/metrics?window=7d' : '/fixture/metrics');
     if (!response.ok) throw new Error('Fixture request failed');
     const data = await response.json();
     const setKpi = (kpi, value) => document.querySelector('[data-kpi="' + kpi + '"] strong').textContent = value;
@@ -105,15 +133,21 @@ export function analyticsPage(
     setKpi('sessions', new Intl.NumberFormat().format(data.sessions));
     setKpi('conversion', new Intl.NumberFormat(undefined, {style:'percent', maximumFractionDigits:1}).format(data.conversion / 100));
     const plot = document.querySelector('.plot');
+    plot.replaceChildren();
     for (const height of data.values) {
       const element = document.createElement('div');
       element.className = 'bar';
       element.style.height = height + '%';
       plot.appendChild(element);
     }
-    if (!document.body.classList.contains('loading')) document.querySelector('main').dataset.ready = 'true';
+    main.dataset.window = window;
+    if (!document.body.classList.contains('loading')) main.dataset.ready = 'true';
   }
-  void render().catch(() => { document.querySelector('main').dataset.ready = 'error'; });
+  const update = () => { void render(select.value).catch(() => { main.dataset.ready = 'error'; }); };
+  select.addEventListener('change', () => {
+    if (!document.body.classList.contains('filter_broken')) update();
+  });
+  update();
 </script>
 </body></html>`;
 }

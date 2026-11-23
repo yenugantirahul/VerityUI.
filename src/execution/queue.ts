@@ -4,6 +4,7 @@ import type { Analysis } from '../analysis/diagnose.ts';
 import type { CaptureResult } from '../capture/engine.ts';
 import type { ComparisonSummary } from '../compare/compare.ts';
 import type { FixtureVariant } from '../fixture/page.ts';
+import type { DashboardCheck } from '../fixture/assertions.ts';
 import { digestOf, type ArtifactRef } from '../persistence/artifacts.ts';
 import {
   authorizeProject,
@@ -32,6 +33,7 @@ export interface JobResult {
   capture: CaptureResult['metadata'];
   comparison: ComparisonSummary;
   analysis?: Analysis;
+  checks?: DashboardCheck[];
   evidence: Partial<Record<Evidence, ArtifactRef>>;
 }
 

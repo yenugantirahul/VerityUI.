@@ -57,6 +57,7 @@ export type CaptureErrorCode =
   | 'not_ready'
   | 'capture_area'
   | 'capture'
+  | 'unstable_rendering'
   | 'timeout'
   | 'cleanup';
 

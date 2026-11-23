@@ -3,6 +3,10 @@ import { diagnose, diagnoseSafely } from '../analysis/diagnose.ts';
 import { capture } from '../capture/engine.ts';
 import { CaptureError, desktopProfile } from '../capture/policy.ts';
 import { compareScreenshots } from '../compare/compare.ts';
+import {
+  inspectDashboard,
+  type DashboardCheck,
+} from '../fixture/assertions.ts';
 import { startFixture } from '../fixture/server.ts';
 import { ArtifactError, type ArtifactStore } from '../persistence/artifacts.ts';
 import {
@@ -90,20 +94,26 @@ export class Worker {
       const { width, height, selector, masks, key } = claim.checkpoint;
       const target = {
         path: '/analytics',
-        readySelector: 'main[data-ready="true"]',
+        readySelector: 'main[data-ready]',
         selector,
         masks,
       };
-      const result = await capture({
-        origin: fixture.origin,
-        profile: { ...desktopProfile, viewport: { width, height } },
-        target,
-        timeoutMs: this.timeoutMs,
-      });
+      let checks: DashboardCheck[] = [];
+      const result = await capture(
+        {
+          origin: fixture.origin,
+          profile: { ...desktopProfile, viewport: { width, height } },
+          target,
+          timeoutMs: this.timeoutMs,
+        },
+        async (page, remainingMs) => {
+          checks = await inspectDashboard(page, remainingMs);
+        },
+      );
       const identity = baselineIdentity({
         environment: 'local-fixture',
         checkpoint: key,
-        fixtureVersion: '1',
+        fixtureVersion: '2',
         target,
         metadata: result.metadata,
       });
@@ -140,6 +150,7 @@ export class Worker {
         capture: result.metadata,
         comparison: comparison.summary,
         analysis,
+        checks,
         evidence,
       };
     } finally {

@@ -282,5 +282,29 @@ test(
     assert.equal(mixedDetail.jobs[1]?.state, 'failed');
     assert.equal(mixedDetail.jobs[1]?.failure, 'timeout');
     assert.equal(mixedDetail.jobs[1]?.attempts, 3);
+
+    const faulty = await response<Run>(
+      call(
+        `${path}/runs`,
+        'POST',
+        { suiteId: suite.id, variant: 'filter_broken' },
+        'bad-filter',
+      ),
+      202,
+    );
+    assert.equal(await worker.runOne(), true);
+    const badFilterPath = `${path}/runs/${faulty.id}`;
+    const faultyJob = (await response<Detail>(call(badFilterPath), 200))
+      .jobs[0]!;
+    assert.equal(faultyJob.result?.comparison.status, 'matched');
+    assert.equal(
+      faultyJob.result?.checks?.find((check) => check.id === 'date_filter')
+        ?.passed,
+      false,
+    );
+    await response(
+      call(`${badFilterPath}/jobs/${faultyJob.id}/candidate`, 'POST'),
+      409,
+    );
   },
 );

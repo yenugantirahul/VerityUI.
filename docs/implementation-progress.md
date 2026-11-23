@@ -10,6 +10,7 @@
 | Phase 4 · Execution API         | PASS                       | Real HTTP, browser capture, worker termination and PostgreSQL restart integration passed.                                |
 | Phase 5 · Review dashboard      | PASS                       | 18 tests passed, including browser sign-in, workspace authorization, evidence controls, review and mobile layout.        |
 | Phase 6 · Evidence analysis     | PASS for rule-based advice | 30 cases evaluated, 20 viewport-held-out checks. Advisory feedback and inference fallback verified.                      |
-| Phase 7 · Analytics assertions  | In progress                | Verify rendered values, chart geometry and filter behavior independently of screenshot change.                           |
+| Phase 7 · Analytics assertions  | PASS                       | Ten seeded defects detected, visual and analytics states independent, cross-browser capture repeatability restored.      |
+| Phase 8 · CLI and CI            | In progress                | Build developer commands and a least-privilege PR workflow. A hosted sample PR requires an authorized repository.        |
 
 See `test-results.md` for command evidence and `next-steps.md` for the active phase plan.

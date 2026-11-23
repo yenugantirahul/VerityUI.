@@ -24,6 +24,12 @@ const variants = {
   clipped: 'Clipped plot',
   typography: 'Typography change',
   wrong_value: 'Incorrect KPI value',
+  missing_legend: 'Missing chart legend',
+  overlapping_labels: 'Overlapping labels',
+  filter_broken: 'Broken date filter',
+  render_error: 'Dashboard render error',
+  table_overflow: 'Table overflow',
+  responsive: 'Broken mobile layout',
   cosmetic: 'Subtle text tint',
   loading: 'Readiness timeout',
   tall: 'Oversized page',
@@ -249,6 +255,7 @@ function Review({
   const summary = result?.comparison;
   const analysis =
     result?.analysis?.state === 'available' ? result.analysis : null;
+  const failures = result?.checks?.filter((check) => !check.passed) ?? [];
   const path = `/projects/${projectId}/runs/${run.id}/jobs/${job?.id}`;
   useEffect(() => {
     if (!result) return;
@@ -436,6 +443,25 @@ function Review({
                 </ul>
               </details>
             )}
+            {result.checks && (
+              <details
+                className="investigation"
+                open={failures.length > 0 || undefined}
+              >
+                <summary>Dashboard checks</summary>
+                <p>
+                  <strong>{result.checks.length - failures.length}</strong> of{' '}
+                  {result.checks.length} passed
+                </p>
+                {!!failures.length && (
+                  <ul>
+                    {failures.map((check) => (
+                      <li key={check.id}>{check.message}</li>
+                    ))}
+                  </ul>
+                )}
+              </details>
+            )}
             {analysis && analysis.severity !== 'none' && (
               <details className="investigation">
                 <summary>Investigation</summary>
@@ -466,7 +492,9 @@ function Review({
               </details>
             )}
             <div className="review-actions" aria-live="polite">
-              {candidate && candidate.status !== 'candidate' ? (
+              {failures.length ? (
+                <p>Resolve failed dashboard checks to promote this capture.</p>
+              ) : candidate && candidate.status !== 'candidate' ? (
                 <p>
                   <Status value={candidate.status} /> Version{' '}
                   {candidate.version}

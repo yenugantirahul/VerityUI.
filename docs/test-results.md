@@ -90,3 +90,11 @@ The standalone demo's compiled dashboard and health endpoint returned HTTP 200. 
 The first rule set mislabeled clipping as removal. The second version improved clipping on the training viewport and was evaluated against two fresh widths. The checks establish numerical grounding on synthetic fixtures. Calibration and generalization to unrelated dashboards require an independently labeled dataset. Keep the rule engine as advisory and defer learned inference pending evidence of added value.
 
 `npm run verify` passed 18 tests in 87.7 seconds. Integration also verified persisted versioned feedback, rejection of feedback targeting a missing analysis version, and preservation of comparison and artifacts when the classifier throws.
+
+## Phase 7 · Analytics assertions
+
+`npm run verify` exited 0 with 19 tests in 91.1 seconds. Browser integration detected incorrect revenue, missing KPI, missing legend, overlapping labels, clipping, chart overflow, a broken date filter, a render error, table overflow and horizontal mobile overflow. The broken filter yielded a matched screenshot and a failed analytics check. The API refused to create a baseline candidate from that result. The original fixture passed all ten checks on desktop and mobile.
+
+Firefox and WebKit initially returned a transient first screenshot under the parallel test load. The capture engine now requires two consecutive byte-identical PNGs within its existing deadline. Each engine again produced ten byte-identical captures across fresh browsers. [Playwright screenshot stability behavior](https://playwright.dev/docs/api/class-pageassertions#page-assertions-to-have-screenshot-1)
+
+The fixture baseline identity was advanced to version 2 for the new filter and legend. The analysis reevaluation retained macro F1 1.0 on the 20 synthetic viewport-held-out cases, with 86 ms incremental p95 and 266 MiB process peak RSS.

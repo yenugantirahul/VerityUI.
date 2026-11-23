@@ -7,6 +7,7 @@ import {
   webkit,
   type Browser,
   type BrowserContext,
+  type Page,
 } from 'playwright';
 import {
   CaptureError,
@@ -39,7 +40,10 @@ export interface CaptureResult {
   };
 }
 
-export async function capture(request: CaptureRequest): Promise<CaptureResult> {
+export async function capture(
+  request: CaptureRequest,
+  inspect?: (page: Page, remainingMs: number) => Promise<void>,
+): Promise<CaptureResult> {
   const { url, timeout } = validateCapture(request);
   const { profile, target } = request;
   const started = performance.now();
@@ -144,6 +148,7 @@ export async function capture(request: CaptureRequest): Promise<CaptureResult> {
     await page
       .locator(target.readySelector)
       .waitFor({ state: 'visible', timeout: remaining() });
+    await inspect?.(page, remaining());
     await page.waitForFunction(
       () => document.fonts.status === 'loaded',
       undefined,
@@ -194,11 +199,26 @@ export async function capture(request: CaptureRequest): Promise<CaptureResult> {
       scale: 'device',
       mask: target.masks?.map((selector) => page.locator(selector)),
       maskColor: '#aeb8c7',
-      timeout: remaining(),
     } as const;
-    const png = component
-      ? await component.screenshot(options)
-      : await page.screenshot({ ...options, fullPage: true });
+    const screenshot = () =>
+      component
+        ? component.screenshot({ ...options, timeout: remaining() })
+        : page.screenshot({ ...options, fullPage: true, timeout: remaining() });
+    let png = await screenshot();
+    let stable = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const next = await screenshot();
+      if (png.equals(next)) {
+        stable = true;
+        break;
+      }
+      png = next;
+    }
+    if (!stable)
+      throw new CaptureError(
+        'unstable_rendering',
+        'The last consecutive screenshots differed.',
+      );
     if (routeFailure)
       throw new CaptureError('navigation', 'A required target request failed.');
     const width = png.readUInt32BE(16);

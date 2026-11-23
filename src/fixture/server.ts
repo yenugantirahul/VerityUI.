@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import {
   analyticsPage,
   fixtureData,
+  weeklyFixtureData,
   fixtureVariants,
   type FixtureVariant,
 } from './page.ts';
@@ -38,10 +39,13 @@ export async function startFixture(
       .type('text/html; charset=utf-8')
       .send(analyticsPage(variant, 0));
   });
-  app.get('/fixture/metrics', () => {
-    metricsRequests++;
-    return fixtureData;
-  });
+  app.get<{ Querystring: { window?: string } }>(
+    '/fixture/metrics',
+    (request) => {
+      metricsRequests++;
+      return request.query.window === '7d' ? weeklyFixtureData : fixtureData;
+    },
+  );
   app.get('/redirect', (_request, reply) => reply.redirect('/analytics'));
   const origin = await app.listen({ host: '127.0.0.1', port: 0 });
   return {
