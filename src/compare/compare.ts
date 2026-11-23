@@ -25,6 +25,7 @@ export interface ComparisonSummary {
 export interface ComparisonResult {
   summary: ComparisonSummary;
   artifacts?: Record<'diff' | 'heatmap' | 'overlay', Buffer>;
+  changeMask?: Buffer;
 }
 
 export const defaultComparisonPolicy: Readonly<ComparisonPolicy> =
@@ -185,5 +186,6 @@ export function compareScreenshots(
   return {
     summary: result,
     artifacts: paintEvidence(baseline, current, mask, locations),
+    changeMask: mask,
   };
 }

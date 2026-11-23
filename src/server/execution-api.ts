@@ -470,6 +470,31 @@ export function registerExecutionApi(app: FastifyInstance, api: ExecutionApi) {
       };
     },
   );
+  app.post<{ Params: Job; Body: { version: string; helpful: boolean } }>(
+    '/projects/:projectId/runs/:runId/jobs/:jobId/analysis-feedback',
+    {
+      schema: {
+        params: jobParams,
+        body: {
+          type: 'object',
+          required: ['version', 'helpful'],
+          additionalProperties: false,
+          properties: {
+            version: { type: 'string', minLength: 1, maxLength: 80 },
+            helpful: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    (request) =>
+      queue.giveFeedback(
+        scope(request, request.params.projectId),
+        request.params.runId,
+        request.params.jobId,
+        request.body.version,
+        request.body.helpful,
+      ),
+  );
   app.post<{
     Params: Project & { versionId: string };
     Body: {

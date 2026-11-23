@@ -1,7 +1,7 @@
 # Next steps
 
-## Phase 6 · Evidence analysis
+## Phase 7 · Analytics assertions
 
-Extract visual evidence features, implement versioned diagnostic rules, and evaluate them against labeled browser captures. Save human feedback against the analysis version. Keep authoritative pixel results and approval decisions independent of advisory findings. Start with CPU-only rules. Compare an optional model only when the labeled results show room for a demonstrated improvement.
+Extend the analytics fixture with a time range filter, legend and testable error cases. Add pre-capture assertions for rendered KPI values and formatting, chart labels, overlap, plot clipping, table overflow, responsive layout and filter behavior. Record assertion output independently of pixel and review states. Version the fixture profile when its reference appearance changes.
 
-Run the full suite and a separate evaluation over multiple rendering profiles. Record class precision, recall, F1, false positives and negatives, localization evidence, latency and explanation checks. If measured value fails the acceptance criteria, keep automatic inference gated and preserve the deterministic pipeline.
+Run real browser checks against each seeded defect, verify the worker persists the assertion findings and blocks approving an invalid fixture, and rerun the full suite and analysis evaluation.

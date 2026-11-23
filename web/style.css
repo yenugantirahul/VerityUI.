@@ -508,6 +508,14 @@ select {
   width: 100%;
   font-size: 0.9rem;
 }
+.investigation p {
+  margin-top: 0.5rem;
+}
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 .review-actions {
   display: grid;
   gap: 0.5rem;

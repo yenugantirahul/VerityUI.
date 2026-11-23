@@ -190,6 +190,23 @@ test(
     assert.equal(changed.attempts, 3);
     assert.equal(changed.result?.comparison.status, 'changed');
     assert.equal(changed.result?.comparedBaselineId, candidates[0].id);
+    const analysis = changed.result?.analysis;
+    assert.ok(analysis?.state === 'available');
+    assert.equal(analysis.classification, 'color');
+    const feedback = `${runPath}/jobs/${changed.id}/analysis-feedback`;
+    await response(
+      call(feedback, 'POST', { version: 'obsolete', helpful: true }),
+      404,
+    );
+    await response(
+      call(feedback, 'POST', { version: analysis.version, helpful: true }),
+      200,
+    );
+    const votes = await pool.query<{ helpful: boolean }>(
+      'SELECT helpful FROM analysis_feedback WHERE job_id = $1',
+      [changed.id],
+    );
+    assert.deepEqual(votes.rows, [{ helpful: true }]);
     assert.equal(await queue.complete(abandoned, changed.result!), false);
     const diffPath = `${runPath}/jobs/${changed.id}/evidence/diff`;
     const evidence = await call(diffPath);
@@ -246,7 +263,9 @@ test(
       call(`${path}/runs`, 'POST', { suiteId: mixedSuite.id }, 'partial'),
       202,
     );
-    const fastWorker = new Worker(queue, baselines, artifacts, 3500);
+    const fastWorker = new Worker(queue, baselines, artifacts, 3500, () => {
+      throw new Error('Analysis unavailable');
+    });
     for (let i = 0; i < 4; i++) {
       assert.equal(await fastWorker.runOne(), true);
       await pool.query(
@@ -259,6 +278,7 @@ test(
       200,
     );
     assert.equal(mixedDetail.jobs[0]?.result?.comparison.status, 'matched');
+    assert.equal(mixedDetail.jobs[0]?.result?.analysis?.state, 'unavailable');
     assert.equal(mixedDetail.jobs[1]?.state, 'failed');
     assert.equal(mixedDetail.jobs[1]?.failure, 'timeout');
     assert.equal(mixedDetail.jobs[1]?.attempts, 3);

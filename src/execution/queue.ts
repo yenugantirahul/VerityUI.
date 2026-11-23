@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
+import type { Analysis } from '../analysis/diagnose.ts';
 import type { CaptureResult } from '../capture/engine.ts';
 import type { ComparisonSummary } from '../compare/compare.ts';
 import type { FixtureVariant } from '../fixture/page.ts';
@@ -30,6 +31,7 @@ export interface JobResult {
   comparedBaselineId: string | null;
   capture: CaptureResult['metadata'];
   comparison: ComparisonSummary;
+  analysis?: Analysis;
   evidence: Partial<Record<Evidence, ArtifactRef>>;
 }
 
@@ -302,6 +304,39 @@ export class RunQueue {
       );
     });
     return this.detail(scope, id);
+  }
+
+  async giveFeedback(
+    scope: BaselineScope,
+    runId: string,
+    jobId: string,
+    version: string,
+    helpful: boolean,
+  ) {
+    return transaction(this.pool, async (client) => {
+      await authorizeProject(client, scope);
+      const job = await client.query(
+        `
+        SELECT jobs.id FROM jobs JOIN runs ON runs.id = jobs.run_id
+        WHERE runs.org_id = $1 AND runs.project_id = $2 AND runs.id = $3 AND jobs.id = $4
+          AND jobs.result->'analysis'->>'state' = 'available' AND jobs.result->'analysis'->>'version' = $5
+      `,
+        [scope.organizationId, scope.projectId, runId, jobId, version],
+      );
+      if (!job.rowCount)
+        throw new ExecutionError(
+          404,
+          'The requested analysis version was not found',
+        );
+      await client.query(
+        `
+        INSERT INTO analysis_feedback (job_id, actor_id, version, helpful) VALUES ($1, $2, $3, $4)
+        ON CONFLICT (job_id, actor_id, version) DO UPDATE SET helpful = EXCLUDED.helpful, recorded_at = now()
+      `,
+        [jobId, scope.actorId, version, helpful],
+      );
+      return { saved: true };
+    });
   }
 
   async claim() {

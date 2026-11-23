@@ -6,6 +6,7 @@ export const fixtureVariants = [
   'overflow',
   'clipped',
   'typography',
+  'wrong_value',
   'cosmetic',
   'loading',
   'tall',
@@ -99,7 +100,8 @@ export function analyticsPage(
     if (!response.ok) throw new Error('Fixture request failed');
     const data = await response.json();
     const setKpi = (kpi, value) => document.querySelector('[data-kpi="' + kpi + '"] strong').textContent = value;
-    setKpi('revenue', new Intl.NumberFormat(undefined, {style:'currency', currency:'USD', maximumFractionDigits:0}).format(data.revenue));
+    const revenue = document.body.classList.contains('wrong_value') ? data.revenue + 1000 : data.revenue;
+    setKpi('revenue', new Intl.NumberFormat(undefined, {style:'currency', currency:'USD', maximumFractionDigits:0}).format(revenue));
     setKpi('sessions', new Intl.NumberFormat().format(data.sessions));
     setKpi('conversion', new Intl.NumberFormat(undefined, {style:'percent', maximumFractionDigits:1}).format(data.conversion / 100));
     const plot = document.querySelector('.plot');

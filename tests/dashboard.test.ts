@@ -183,6 +183,10 @@ test(
       await slider.focus();
       await slider.press('ArrowRight');
       assert.equal(await slider.inputValue(), '51');
+      await page.getByText('Investigation', { exact: true }).click();
+      await page.getByText(/Most changed pixels were colored/).waitFor();
+      await page.getByRole('button', { name: 'Helpful', exact: true }).click();
+      await page.getByRole('status').getByText('Feedback saved').waitFor();
       await page.getByRole('button', { name: 'Reject change' }).click();
       await page
         .locator('.review-actions')

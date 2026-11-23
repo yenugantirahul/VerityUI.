@@ -15,6 +15,7 @@
     "capture:demo": "node dist/fixture/capture-demo.js",
     "compare:demo": "node dist/fixture/compare-demo.js",
     "benchmark:compare": "node dist/fixture/compare-demo.js color --benchmark",
+    "evaluate:analysis": "node scripts/evaluate-analysis.ts",
     "db:migrate": "node --env-file-if-exists=.env dist/persistence/migrate-cli.js",
     "build": "npm run build:server && vite build",
     "build:server": "tsc -p tsconfig.build.json",

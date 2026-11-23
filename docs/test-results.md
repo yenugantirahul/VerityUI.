@@ -72,3 +72,21 @@ The test also stopped PostgreSQL, observed a 503 from the API and a queue claim 
 `npm run verify` passed formatting, lint, server and web type-checking, both production builds and 18 tests in 86.8 seconds. Vite produced a 73.0 KiB gzipped JavaScript bundle. The real Chromium end-to-end test covered invalid and valid login, HttpOnly and SameSite cookie flags, authorized workspace selection, viewer restrictions, rejection of an unrelated workspace and cross-origin submission, project and suite creation, run execution, real PNG evidence, keyboard slider operation, baseline approval, rejection, history after reload, sign-out and forbidden private evidence. The viewport fit the page at 390 CSS pixels.
 
 The verified dashboard screenshot is generated at `data/demo/workspace.png`. Workspace sessions live in one local API process. Persisted projects, runs, captures and reviews survive session expiration. The hosted authentication and worker isolation gates remain separate.
+
+The standalone demo's compiled dashboard and health endpoint returned HTTP 200. Port 4310 was occupied by another listener, so the demo now picks an available port by default and honors `PORT` when set. An interrupted wrapper process left a temporary PostgreSQL server, which was shut down using `pg_ctl`. An execution-policy rejection prevented removing that stopped temporary directory. A subsequent demonstration used the Enter shutdown path and exited 0.
+
+## Phase 6 · Rule-based evidence analysis
+
+`npm run evaluate:analysis` examined 30 actual Chromium capture pairs, with 20 viewport-held-out pairs at widths 430 and 1600. The data includes a numeric KPI regression, a removed KPI, a clipped chart, chart overflow, positional shifts, typography, color, cosmetic noise, and masked dynamic content. All viewports share the same synthetic application and defect families.
+
+| Metric                          | Observed                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Authoritative pixel detection   | 14 TP, 6 TN, zero FP and FN. Precision, recall and F1 were 1.0 for these cases.                                                |
+| Diagnostic macro F1             | 1.0 across seven labels. Pixel-only output mapped to identity or a generic change for comparison and scored 0.114.             |
+| Critical findings and grounding | No critical case suppressed. All 20 automated grounding checks matched comparison counts and valid region references.          |
+| Localization                    | 98.7% mean containment of the primary reported region inside the labeled widget over 12 localized cases.                       |
+| Resources                       | Incremental analysis p95 83 ms. Evaluation Node peak RSS 263 MiB including captures and comparison. No remote inference calls. |
+
+The first rule set mislabeled clipping as removal. The second version improved clipping on the training viewport and was evaluated against two fresh widths. The checks establish numerical grounding on synthetic fixtures. Calibration and generalization to unrelated dashboards require an independently labeled dataset. Keep the rule engine as advisory and defer learned inference pending evidence of added value.
+
+`npm run verify` passed 18 tests in 87.7 seconds. Integration also verified persisted versioned feedback, rejection of feedback targeting a missing analysis version, and preservation of comparison and artifacts when the classifier throws.

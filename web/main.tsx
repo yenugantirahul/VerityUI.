@@ -23,6 +23,7 @@ const variants = {
   overflow: 'Chart overflow',
   clipped: 'Clipped plot',
   typography: 'Typography change',
+  wrong_value: 'Incorrect KPI value',
   cosmetic: 'Subtle text tint',
   loading: 'Readiness timeout',
   tall: 'Oversized page',
@@ -242,9 +243,12 @@ function Review({
   const [split, setSplit] = useState(50);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [working, setWorking] = useState(false);
+  const [feedback, setFeedback] = useState(false);
   const job = run.jobs[index];
   const result = job?.result;
   const summary = result?.comparison;
+  const analysis =
+    result?.analysis?.state === 'available' ? result.analysis : null;
   const path = `/projects/${projectId}/runs/${run.id}/jobs/${job?.id}`;
   useEffect(() => {
     if (!result) return;
@@ -277,6 +281,19 @@ function Review({
       report(errorText(error));
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function giveFeedback(helpful: boolean) {
+    if (!analysis) return;
+    try {
+      await api(`${path}/analysis-feedback`, 'POST', {
+        version: analysis.version,
+        helpful,
+      });
+      setFeedback(true);
+    } catch (error) {
+      report(errorText(error));
     }
   }
 
@@ -317,6 +334,7 @@ function Review({
               setIndex(position);
               setMode('current');
               setCandidate(null);
+              setFeedback(false);
             }}
           >
             <span>{item.checkpoint.key}</span>
@@ -416,6 +434,35 @@ function Review({
                     </li>
                   ))}
                 </ul>
+              </details>
+            )}
+            {analysis && analysis.severity !== 'none' && (
+              <details className="investigation">
+                <summary>Investigation</summary>
+                <p>{analysis.explanation}</p>
+                <p>{analysis.suggestion}</p>
+                <p className="muted">
+                  Severity {analysis.severity} · Rule support{' '}
+                  {Math.round(analysis.confidence * 100)}%
+                </p>
+                {feedback ? (
+                  <p role="status">Feedback saved</p>
+                ) : (
+                  <div className="feedback-actions">
+                    <button
+                      className="text-button"
+                      onClick={() => void giveFeedback(true)}
+                    >
+                      Helpful
+                    </button>
+                    <button
+                      className="text-button"
+                      onClick={() => void giveFeedback(false)}
+                    >
+                      Incorrect
+                    </button>
+                  </div>
+                )}
               </details>
             )}
             <div className="review-actions" aria-live="polite">

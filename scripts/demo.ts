@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { access } from 'node:fs/promises';
+import { createInterface } from 'node:readline';
 import { RunQueue } from '../src/execution/queue.ts';
 import { initializeLocalOperator } from '../src/execution/runtime.ts';
 import { Worker } from '../src/execution/worker.ts';
@@ -13,11 +14,15 @@ const webRoot = resolve('web-dist');
 await access(join(webRoot, 'index.html')).catch(() => {
   throw new Error('Run npm run build before launching the demo');
 });
-const database = await testDatabase();
-let app: ReturnType<typeof createApp> | undefined;
 const controller = new AbortController();
 process.once('SIGINT', () => controller.abort());
 process.once('SIGTERM', () => controller.abort());
+const database = await testDatabase();
+let app: ReturnType<typeof createApp> | undefined;
+const input = process.stdin.isTTY
+  ? createInterface({ input: process.stdin })
+  : undefined;
+input?.once('line', () => controller.abort());
 try {
   const queue = new RunQueue(database.pool);
   const artifacts = new DiskArtifacts(join(database.directory, 'objects'));
@@ -35,16 +40,17 @@ try {
   );
   const address = await app.listen({
     host: '127.0.0.1',
-    port: parsePort(process.env.PORT),
+    port: process.env.PORT ? parsePort(process.env.PORT) : 0,
   });
   console.log(
-    `Dashboard ${address}\nTemporary operator token ${token}\nPress Ctrl+C to stop and remove this demo workspace.`,
+    `Dashboard ${address}\nTemporary operator token ${token}\nPress Enter or Ctrl+C to stop and remove this demo workspace.`,
   );
   await new Worker(queue, baselines, artifacts).run(
     controller.signal,
     (event) => console.error(event),
   );
 } finally {
+  input?.close();
   await app?.close();
   await database.close();
 }

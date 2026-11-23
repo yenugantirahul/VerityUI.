@@ -1,4 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
+import { diagnose, diagnoseSafely } from '../analysis/diagnose.ts';
 import { capture } from '../capture/engine.ts';
 import { CaptureError, desktopProfile } from '../capture/policy.ts';
 import { compareScreenshots } from '../compare/compare.ts';
@@ -16,17 +17,20 @@ export class Worker {
   private readonly baselines: Baselines;
   private readonly artifacts: ArtifactStore;
   private readonly timeoutMs: number;
+  private readonly diagnose: typeof diagnose;
 
   constructor(
     queue: RunQueue,
     baselines: Baselines,
     artifacts: ArtifactStore,
     timeoutMs = 15000,
+    classify = diagnose,
   ) {
     this.queue = queue;
     this.baselines = baselines;
     this.artifacts = artifacts;
     this.timeoutMs = timeoutMs;
+    this.diagnose = classify;
   }
 
   async runOne() {
@@ -108,6 +112,12 @@ export class Worker {
         ? await this.baselines.artifact(scope, active.id)
         : undefined;
       const comparison = compareScreenshots(baseline, result.png);
+      const analysis = diagnoseSafely(
+        baseline,
+        result.png,
+        comparison,
+        this.diagnose,
+      );
       const evidence: JobResult['evidence'] = {
         current: await this.artifacts.put(scope.organizationId, result.png),
       };
@@ -129,6 +139,7 @@ export class Worker {
         comparedBaselineId: active?.id ?? null,
         capture: result.metadata,
         comparison: comparison.summary,
+        analysis,
         evidence,
       };
     } finally {

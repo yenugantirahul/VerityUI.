@@ -61,7 +61,9 @@ npm run build
 npm run demo
 ```
 
-The demo starts a real temporary PostgreSQL server, API and worker on loopback. Open the printed URL and sign in using the temporary operator token shown in your terminal. In Harbor Analytics, start the **Original fixture** run and approve its baseline. Start **Chart recolor** to inspect the diff, heatmap, overlay and before/after slider. Press Ctrl+C to stop the demo and clear its temporary workspace. The persistent local setup uses `npm start` and `npm run worker` and serves the same dashboard at the API root.
+The demo starts a real temporary PostgreSQL server, API and worker on loopback. Open the printed URL and sign in using the temporary operator token shown in your terminal. In Harbor Analytics, start the **Original fixture** run and approve its baseline. Start **Chart recolor** to inspect the diff, heatmap, overlay and before/after slider. Press Enter or Ctrl+C to stop the demo and clear its temporary workspace. The persistent local setup uses `npm start` and `npm run worker` and serves the same dashboard at the API root.
+
+Changed results include an **Investigation** panel with optional rule-based findings, supporting evidence and feedback. The rules run locally and leave comparison and review decisions independent. `npm run evaluate:analysis` generates a labeled fixture report under `data/evaluation/`.
 
 ## Engineering docs
 
