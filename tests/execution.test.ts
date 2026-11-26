@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { join } from 'node:path';
 import { writeFile, unlink } from 'node:fs/promises';
 import { test } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { promisify } from 'node:util';
 import { RunQueue, type Claim } from '../src/execution/queue.ts';
 import { initializeLocalOperator } from '../src/execution/runtime.ts';
 import { Worker } from '../src/execution/worker.ts';
@@ -113,12 +114,26 @@ test(
       response<{ id: string }>(call(candidatePath, 'POST'), 200),
     ]);
     assert.equal(candidates[0].id, candidates[1].id);
-    await response(
-      call(`${path}/baselines/${candidates[0].id}/review`, 'POST', {
-        action: 'approve',
-      }),
-      200,
+    const promoted = await promisify(execFile)(
+      process.execPath,
+      [
+        'dist/cli/main.js',
+        'review',
+        '--api',
+        address,
+        '--project',
+        project.id,
+        '--run',
+        submitted[0].id,
+        '--job',
+        first.id,
+        '--action',
+        'approve',
+      ],
+      { env: { ...process.env, DELTAFRAME_API_TOKEN: token }, timeout: 25000 },
     );
+    assert.equal(JSON.parse(promoted.stdout).id, candidates[0].id);
+    assert.equal(JSON.parse(promoted.stdout).status, 'approved');
 
     const next = await response<Run>(
       call(

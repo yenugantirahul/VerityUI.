@@ -1,0 +1,70 @@
+name: VerityUI visual verification
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      seeded_regression:
+        description: Exercise the chart recolor regression
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_GC: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: .ci-reference
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install and build candidate
+        run: |
+          npm ci
+          npx playwright install --with-deps --no-shell chromium
+          npm run build:server
+      - name: Build the reference app
+        working-directory: .ci-reference
+        run: |
+          npm ci
+          npm run build:server
+      - name: Capture and verify both revisions
+        env:
+          FIXTURE_BASE_CHECKOUT: .ci-reference
+          REFERENCE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          FIXTURE_VARIANT: ${{ inputs.seeded_regression && 'color' || 'original' }}
+        run: npm run verify:fixture
+      - name: Write check summary
+        if: always()
+        run: |
+          node --input-type=module <<'JS'
+          import { readFile, appendFile } from 'node:fs/promises';
+          const report = await readFile('visual-report/report.json', 'utf8').then(JSON.parse).catch(() => null);
+          const lines = report ? [
+            '## VerityUI visual verification',
+            '',
+            `Outcome **${report.status}**`,
+            '',
+            ...report.results.map((result) => `- \`${result.route}\` · ${result.viewport} · ${result.failure ?? result.intent?.verdict ?? 'not compared'}`),
+            '',
+            'Download **visual-report** and open **report.html** for screenshots and element changes.',
+          ] : ['The visual check ended before a candidate report was generated. See the job log.'];
+          await appendFile(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          JS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: visual-report
+          path: visual-report/
+          retention-days: 7
+          if-no-files-found: warn

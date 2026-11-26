@@ -1,3 +1,4 @@
+export const fixtureVersion = '2';
 export const fixtureVariants = [
   'original',
   'color',
@@ -105,8 +106,8 @@ export function analyticsPage(
     <article class="panel kpi" data-kpi="sessions">Sessions<strong></strong></article>
     <article class="panel kpi" data-kpi="conversion">Conversion<strong></strong></article>
   </section>
-  <section class="panel chart" aria-labelledby="chart-title">
-    <h2 id="chart-title">Revenue trend</h2><div class="plot" aria-hidden="true"></div>
+  <section class="panel chart" data-verity-component="RevenueChart" data-testid="revenue-chart" aria-labelledby="chart-title">
+    <h2 id="chart-title">Revenue trend</h2><div class="plot" data-verity-component="RevenuePlot" data-testid="revenue-plot" aria-hidden="true"></div>
     <div class="axis muted" aria-label="Chart axis"><span>Jan</span><span>Dec</span></div>
     <div class="legend muted" aria-label="Chart legend"><i aria-hidden="true"></i>Revenue</div>
   </section>

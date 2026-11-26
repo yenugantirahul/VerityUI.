@@ -32,6 +32,8 @@ export interface CaptureRequest {
   jsonFixtures?: Readonly<Record<string, unknown>>;
   storageState?: StorageState;
   timeoutMs?: number;
+  randomSeed?: number;
+  snapshot?: boolean;
 }
 
 export const desktopProfile = {
@@ -106,6 +108,10 @@ export function validateCapture(request: CaptureRequest) {
       !Number.isInteger(timeout) ||
       timeout < 250 ||
       timeout > 60_000 ||
+      (request.randomSeed !== undefined &&
+        (!Number.isInteger(request.randomSeed) ||
+          request.randomSeed < 0 ||
+          request.randomSeed > 0xffffffff)) ||
       invalidSelector(target.readySelector) ||
       (target.selector !== undefined && invalidSelector(target.selector)) ||
       (target.masks?.length ?? 0) > 20 ||

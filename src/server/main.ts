@@ -7,10 +7,11 @@ import {
 import { createApp, parsePort } from './app.ts';
 
 const connection = process.env.DATABASE_URL;
-const token = process.env.DELTAFRAME_API_TOKEN;
+const token =
+  process.env.VERITYUI_API_TOKEN ?? process.env.DELTAFRAME_API_TOKEN;
 if (connection && (!token || !/^\S{32,512}$/.test(token))) {
   throw new Error(
-    'Set DELTAFRAME_API_TOKEN to a random secret of at least 32 characters',
+    'Set VERITYUI_API_TOKEN to a random secret of at least 32 characters',
   );
 }
 const runtime = connection ? executionServices(connection) : undefined;

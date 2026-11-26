@@ -1,6 +1,33 @@
-# Deltaframe
+# VerityUI
 
-Deltaframe is a visual regression testing framework for analytics applications. It uses reproducible browser captures, immutable baseline evidence and explicit human review. See the [implementation progress](docs/implementation-progress.md) for the current delivery state.
+VerityUI verifies frontend changes before merge. Capture a baseline and a candidate in your own environment, then review deterministic pixel diffs, element-level changes and the declared scope of the change.
+
+## Verify your application
+
+Install Node.js 24.20.0 and npm 11. Run these commands from the repository root with your application listening on port 3000. In Windows PowerShell, use `npm.cmd` and `npx.cmd` if script execution policy blocks npm's PowerShell wrappers.
+
+```sh
+npm ci
+npx playwright install --no-shell chromium
+npm run build:server
+npm run cli -- init --base-url http://localhost:3000
+npm run cli -- capture --output data/reference
+```
+
+Make a frontend change and run the verification command. Open `data/verification/report.html` to inspect evidence. The generated config starts with `/` at desktop and mobile sizes. Configure your app's routes, viewport sizes and an optional change contract in [the CLI guide](docs/cli.md).
+
+```sh
+npm run cli -- verify --reference data/reference --output data/verification
+```
+
+## Try the review workspace
+
+```sh
+npm run build
+npm run demo
+```
+
+Open the URL printed in the terminal and sign in with the temporary operator token from the same terminal. Run **Original fixture** in Harbor Analytics and approve its baseline, then run **Chart recolor** to inspect the diff and record a review decision.
 
 ## Local development
 
@@ -52,23 +79,15 @@ For a persistent development database, copy `.env.example` to `.env`, set `DELTA
 
 ## Run the API and worker
 
-With migrations applied, set a random `DELTAFRAME_API_TOKEN` in `.env`. Use at least 32 characters without whitespace. Run `npm start` in one terminal and `npm run worker` in another. Both processes use the same database and local `ARTIFACT_DIR`. The worker captures the bundled analytics fixture, compares approved baselines, and saves private PNG evidence. Use the [execution API](docs/api.md) for run submission and review.
+With migrations applied, set a random `VERITYUI_API_TOKEN` in `.env`. Use at least 32 characters without whitespace. Run `npm start` in one terminal and `npm run worker` in another. Both processes use the same database and local `ARTIFACT_DIR`. The worker captures the bundled analytics fixture, compares approved baselines, and saves private PNG evidence. The earlier `DELTAFRAME_API_TOKEN` environment name is accepted for existing installations. Use the [execution API](docs/api.md) for run submission and review.
 
-## Open the review dashboard
-
-```sh
-npm run build
-npm run demo
-```
-
-The demo starts a real temporary PostgreSQL server, API and worker on loopback. Open the printed URL and sign in using the temporary operator token shown in your terminal. In Harbor Analytics, start the **Original fixture** run and approve its baseline. Start **Chart recolor** to inspect the diff, heatmap, overlay and before/after slider. Press Enter or Ctrl+C to stop the demo and clear its temporary workspace. The persistent local setup uses `npm start` and `npm run worker` and serves the same dashboard at the API root.
-
-Changed results include an **Investigation** panel with optional rule-based findings, supporting evidence and feedback. The rules run locally and leave comparison and review decisions independent. `npm run evaluate:analysis` generates a labeled fixture report under `data/evaluation/`.
+Changed fixture results include an **Investigation** panel with rule-based findings, supporting evidence and feedback. The app CLI can optionally request a multimodal opinion on cropped evidence. Both kinds of advice leave approval in the reviewer's hands.
 
 ## Engineering docs
 
 - [Requirements and measurable objectives](docs/requirements.md)
 - [Architecture and trust boundaries](docs/architecture.md)
+- [Blueprint delivery status](docs/implementation-progress.md)
 - [Technology decisions and ADRs](docs/decisions.md)
 - [Roadmap and phase gates](docs/roadmap.md)
 - [Verification evidence](docs/test-results.md)

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "checkpoints": [
+    { "key": "desktop", "width": 1200, "height": 800 },
+    { "key": "mobile", "width": 390, "height": 720 }
+  ],
+  "comparison": {
+    "pixelThreshold": 0.1,
+    "maxChangedPixels": 0,
+    "maxChangedRatio": 0
+  }
+}

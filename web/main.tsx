@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Checkpoint, Evidence, RunQueue } from '../src/execution/queue.ts';
+import { Brand, Landing } from './landing.tsx';
 import './style.css';
+import './landing.css';
 
 type WorkspaceEntry = { id: string; name: string };
 type Session = { workspace: WorkspaceEntry; workspaces: WorkspaceEntry[] };
@@ -61,18 +63,6 @@ async function api<T>(
   if (!result.ok)
     throw new Error(payload.error ?? 'The local API is unavailable');
   return payload as T;
-}
-
-function Brand() {
-  return (
-    <div className="brand">
-      <span className="logo" aria-hidden="true">
-        <i />
-        <i />
-      </span>
-      Deltaframe
-    </div>
-  );
 }
 
 function Status({ value }: { value: string }) {
@@ -974,31 +964,32 @@ function App() {
       />
     );
   return (
-    <main className="login">
-      <form className="login-card" onSubmit={login}>
-        <Brand />
-        <h1>{checking ? 'Checking session…' : 'Sign in'}</h1>
-        <p className="muted">Use your local workspace operator token.</p>
-        <label>
-          Operator token
-          <input
-            type="password"
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        {issue && (
-          <p role="alert" className="error">
-            {issue}
-          </p>
-        )}
-        <button className="primary" disabled={working || checking}>
-          {working ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-    </main>
+    <Landing
+      signIn={
+        <form className="login-card" onSubmit={login}>
+          <h2>{checking ? 'Checking session…' : 'Sign in'}</h2>
+          <p className="muted">Use your local workspace operator token.</p>
+          <label>
+            Operator token
+            <input
+              type="password"
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          {issue && (
+            <p role="alert" className="error">
+              {issue}
+            </p>
+          )}
+          <button className="primary" disabled={working || checking}>
+            {working ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+      }
+    />
   );
 }
 

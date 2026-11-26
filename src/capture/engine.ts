@@ -17,11 +17,13 @@ import {
   type BrowserEngine,
   type CaptureRequest,
 } from './policy.ts';
+import { captureSnapshot, type Snapshot } from './snapshot.ts';
 
 const engines = { chromium, firefox, webkit };
 
 export interface CaptureResult {
   png: Buffer;
+  snapshot?: Snapshot;
   metadata: typeof renderingEnvironment & {
     browser: BrowserEngine;
     browserVersion: string;
@@ -132,6 +134,15 @@ export async function capture(
 
     const page = await context.newPage();
     await page.clock.setFixedTime(new Date(profile.clock));
+    if (request.randomSeed !== undefined) {
+      await page.addInitScript((seed) => {
+        let state = seed;
+        Math.random = () => {
+          state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+          return state / 0x100000000;
+        };
+      }, request.randomSeed);
+    }
     phase = 'navigation';
     const response = await page.goto(url.href, {
       waitUntil: 'load',
@@ -231,6 +242,9 @@ export async function capture(
     }
     result = {
       png,
+      snapshot: request.snapshot
+        ? await captureSnapshot(page, target, profile.deviceScaleFactor)
+        : undefined,
       metadata: {
         ...renderingEnvironment,
         browser: profile.browser,

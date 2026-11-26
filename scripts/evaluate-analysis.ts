@@ -39,10 +39,15 @@ const cases: {
     widget: '[data-kpi="revenue"]',
     critical: true,
   },
+  { name: 'missing_legend', label: 'removed', widget: '.legend' },
+  { name: 'overlapping_labels', label: 'layout', widget: '.axis' },
+  { name: 'table_overflow', label: 'layout', widget: 'table', critical: true },
 ];
 const viewports = [
   { width: 1200, height: 800 },
+  { width: 390, height: 844 },
   { width: 430, height: 800 },
+  { width: 768, height: 1024 },
   { width: 1600, height: 960 },
 ];
 const fixture = await startFixture();

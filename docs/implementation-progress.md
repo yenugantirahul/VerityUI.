@@ -1,5 +1,21 @@
 # Implementation progress
 
+## VerityUI alpha
+
+| Blueprint workflow                          | Delivery                                                                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Capture two revisions of a real application | Configurable Playwright routes, browsers and viewports with same-origin fixtures, masks, a fixed clock and optional seeded randomness |
+| Detect and explain changes                  | Pixel evidence, paired region crops, structural matching, property diffs, HTML reports and machine-readable results                   |
+| Evaluate change intent                      | Versioned YAML contract, component and route protection, review and strict modes                                                      |
+| Attribute evidence                          | Stable test IDs and component names, with application-supplied source locations                                                       |
+| Classify changes                            | Opt-in multimodal adapter with bounded requests and validated citations. Approval remains a human decision                            |
+| Run on pull requests                        | Repository workflow captures both revisions with one toolchain and retains evidence for review                                        |
+| Review persisted runs                       | Local analytics workspace with PostgreSQL, a separate worker and transactional baseline review                                        |
+
+The current alpha centers on customer-side capture and local or CI-generated reports. Repository installation via a GitHub App, hosted artifact ingestion and storage, merged-commit baseline promotion, source-map and AST attribution, agent repair loops and billing are later milestones in the blueprint.
+
+## Deltaframe foundation
+
 | Milestone                       | Status                     | Evidence                                                                                                                 |
 | ------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Workspace and architecture      | Complete                   | Empty workspace with no Git repository. Requirements, decisions, diagrams, roadmap and risks reviewed against the brief. |

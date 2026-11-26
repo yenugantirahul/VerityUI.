@@ -7,6 +7,7 @@ import {
   inspectDashboard,
   type DashboardCheck,
 } from '../fixture/assertions.ts';
+import { fixtureVersion } from '../fixture/page.ts';
 import { startFixture } from '../fixture/server.ts';
 import { ArtifactError, type ArtifactStore } from '../persistence/artifacts.ts';
 import {
@@ -113,7 +114,7 @@ export class Worker {
       const identity = baselineIdentity({
         environment: 'local-fixture',
         checkpoint: key,
-        fixtureVersion: '2',
+        fixtureVersion,
         target,
         metadata: result.metadata,
       });

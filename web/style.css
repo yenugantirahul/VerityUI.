@@ -3,12 +3,12 @@
     16px/1.5 'Inter',
     'Segoe UI',
     sans-serif;
-  color: #17233b;
-  background: #f2f5fb;
-  --line: #dce4f0;
-  --muted: #53637e;
-  --accent: #2459d2;
-  --navy: #142139;
+  color: #1b2a23;
+  background: #f4f7f4;
+  --line: #d9e4dc;
+  --muted: #4c6255;
+  --accent: #20563d;
+  --navy: #193528;
   --paper: #fff;
 }
 * {
@@ -49,7 +49,7 @@ button:disabled {
   opacity: 0.6;
 }
 :focus-visible {
-  outline: 3px solid #4e81fd;
+  outline: 3px solid #419264;
   outline-offset: 3px;
 }
 input,
@@ -101,7 +101,7 @@ select {
   background: var(--accent);
 }
 .primary:hover:not(:disabled) {
-  background: #1949b5;
+  background: #16432e;
 }
 .secondary {
   color: #253753;
@@ -149,19 +149,19 @@ select {
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 0.65rem;
-  background: #d9e6ff;
+  background: #daeee0;
 }
 .logo i {
   position: absolute;
   width: 0.83rem;
   height: 0.83rem;
-  border: 2px solid #2459d2;
+  border: 2px solid #20563d;
   border-radius: 0.17rem;
   transform: translate(-0.17rem, -0.17rem);
 }
 .logo i + i {
   transform: translate(0.17rem, 0.17rem);
-  border-color: #5a82dd;
+  border-color: #619470;
 }
 .shell {
   min-height: 100vh;
@@ -193,7 +193,7 @@ select {
 .sidebar {
   padding: 1.4rem 0.85rem;
   border-right: 1px solid var(--line);
-  background: #f9fbff;
+  background: #fbfdfa;
 }
 .side-heading,
 .panel-heading,
@@ -235,10 +235,10 @@ select {
   overflow-wrap: anywhere;
 }
 .project-link[aria-current] {
-  background: #e5eeff;
-  border-color: #cbdcff;
+  background: #e7f2e9;
+  border-color: #cce2d1;
   font-weight: 700;
-  color: #184699;
+  color: #20563d;
 }
 .project-icon {
   display: grid;
@@ -246,8 +246,8 @@ select {
   border-radius: 0.4rem;
   min-width: 1.75rem;
   height: 1.75rem;
-  background: #d6e3fc;
-  color: #224489;
+  background: #dbeddf;
+  color: #20563d;
   font-weight: 700;
 }
 .side-empty {
@@ -285,8 +285,8 @@ select {
   color: #4b5d79;
 }
 .page-tabs button[aria-pressed='true'] {
-  color: #183f9d;
-  border-bottom-color: #356cf2;
+  color: #20563d;
+  border-bottom-color: #397d57;
 }
 .panel {
   background: var(--paper);
@@ -351,8 +351,8 @@ select {
   padding: 0.8rem 0.75rem;
 }
 .run-row[aria-current] {
-  background: #eaf1ff;
-  box-shadow: inset 3px 0 #356cf2;
+  background: #edf5ee;
+  box-shadow: inset 3px 0 #397d57;
 }
 .run-row:hover {
   background: #f1f6ff;
@@ -570,13 +570,6 @@ select {
 .suite .wide {
   grid-column: 1 / -1;
 }
-.login {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: radial-gradient(ellipse at 34% 20%, #dce8ff, #f2f5fb 58%);
-}
 .login-card {
   display: grid;
   gap: 1rem;
@@ -586,9 +579,6 @@ select {
   border: 1px solid var(--line);
   border-radius: 1rem;
   box-shadow: 0 18px 44px #26437c19;
-}
-.login-card h1 {
-  margin-top: 0.6rem;
 }
 @media (max-width: 1130px) {
   .run-layout {
