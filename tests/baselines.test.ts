@@ -59,7 +59,12 @@ test(
           'SELECT name FROM schema_migrations ORDER BY name',
         )
       ).rows.map(({ name }) => name),
-      ['001_baselines.sql', '002_execution.sql', '003_analysis.sql'],
+      [
+        '001_baselines.sql',
+        '002_execution.sql',
+        '003_analysis.sql',
+        '004_ci_ingestion.sql',
+      ],
     );
 
     const projectId = randomUUID();

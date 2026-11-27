@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { link, mkdir, open, stat, unlink } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { access, link, mkdir, open, stat, unlink } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -18,6 +19,7 @@ export interface ArtifactRef {
 export interface ArtifactStore {
   put(tenant: string, data: Buffer): Promise<ArtifactRef>;
   get(tenant: string, ref: ArtifactRef): Promise<Buffer>;
+  ready?(): Promise<void>;
 }
 
 export class ArtifactError extends Error {
@@ -32,6 +34,11 @@ export class DiskArtifacts implements ArtifactStore {
 
   constructor(directory: string) {
     this.root = resolve(directory);
+  }
+
+  async ready() {
+    await mkdir(this.root, { recursive: true, mode: 0o700 });
+    await access(this.root, constants.R_OK | constants.W_OK);
   }
 
   private path(tenant: string, digest: string) {

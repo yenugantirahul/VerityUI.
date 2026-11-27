@@ -1,8 +1,11 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { diagnose, diagnoseSafely } from '../analysis/diagnose.ts';
-import { capture } from '../capture/engine.ts';
+import { capture, type CaptureResult } from '../capture/engine.ts';
 import { CaptureError, desktopProfile } from '../capture/policy.ts';
+import type { Snapshot } from '../capture/snapshot.ts';
 import { compareScreenshots } from '../compare/compare.ts';
+import { InvalidImageError } from '../compare/images.ts';
+import { compareStructure } from '../compare/structure.ts';
 import {
   inspectDashboard,
   type DashboardCheck,
@@ -15,7 +18,13 @@ import {
   baselineIdentity,
   type Baselines,
 } from '../persistence/baselines.ts';
-import type { Claim, JobResult, RunQueue } from './queue.ts';
+import type { BaselineScope } from '../persistence/baselines.ts';
+import {
+  ExecutionError,
+  type Claim,
+  type JobResult,
+  type RunQueue,
+} from './queue.ts';
 
 export class Worker {
   private readonly queue: RunQueue;
@@ -50,15 +59,19 @@ export class Worker {
           ? error.code
           : error instanceof ArtifactError
             ? 'storage_unavailable'
-            : error instanceof BaselineError
-              ? error.code
-              : 'worker_error';
+            : error instanceof InvalidImageError ||
+                error instanceof ExecutionError
+              ? 'invalid_capture'
+              : error instanceof BaselineError
+                ? error.code
+                : 'worker_error';
       await this.queue.fail(
         claim,
         code,
         ![
           'invalid_configuration',
           'capture_area',
+          'invalid_capture',
           'forbidden',
           'not_found',
         ].includes(code),
@@ -90,6 +103,21 @@ export class Worker {
       projectId: claim.project_id,
       actorId: claim.actor_id,
     };
+    if (claim.variant === 'ci') {
+      const input = claim.uploaded_evidence;
+      if (!input)
+        throw new ExecutionError(400, 'CI checkpoint is missing input');
+      const png = await this.artifacts.get(scope.organizationId, input.frame);
+      const snapshot =
+        input.snapshot && (await this.readSnapshot(scope, input.snapshot));
+      return this.compare(
+        scope,
+        input.identity,
+        { png, metadata: input.metadata, snapshot },
+        undefined,
+        input.frame,
+      );
+    }
     const fixture = await startFixture(claim.variant);
     try {
       const { width, height, selector, masks, key } = claim.checkpoint;
@@ -118,44 +146,76 @@ export class Worker {
         target,
         metadata: result.metadata,
       });
-      const active = await this.baselines.active(scope, identity);
-      const baseline = active
-        ? await this.baselines.artifact(scope, active.id)
-        : undefined;
-      const comparison = compareScreenshots(baseline, result.png);
-      const analysis = diagnoseSafely(
-        baseline,
-        result.png,
-        comparison,
-        this.diagnose,
-      );
-      const evidence: JobResult['evidence'] = {
-        current: await this.artifacts.put(scope.organizationId, result.png),
-      };
-      if (active)
-        evidence.baseline = {
-          digest: active.artifact_digest,
-          sizeBytes: active.artifact_bytes,
-        };
-      if (comparison.artifacts) {
-        for (const kind of ['diff', 'heatmap', 'overlay'] as const) {
-          evidence[kind] = await this.artifacts.put(
-            scope.organizationId,
-            comparison.artifacts[kind],
-          );
-        }
-      }
-      return {
-        identity,
-        comparedBaselineId: active?.id ?? null,
-        capture: result.metadata,
-        comparison: comparison.summary,
-        analysis,
-        checks,
-        evidence,
-      };
+      return await this.compare(scope, identity, result, checks);
     } finally {
       await fixture.close();
     }
+  }
+
+  private async readSnapshot(
+    scope: BaselineScope,
+    ref: NonNullable<JobResult['evidence']['current']>,
+  ) {
+    const bytes = await this.artifacts.get(scope.organizationId, ref);
+    return JSON.parse(bytes.toString('utf8')) as Snapshot;
+  }
+
+  private async compare(
+    scope: BaselineScope,
+    identity: string,
+    result: CaptureResult,
+    checks?: DashboardCheck[],
+    uploadedFrame?: JobResult['evidence']['current'],
+  ): Promise<JobResult> {
+    const active = await this.baselines.active(scope, identity);
+    const baseline =
+      active && (await this.baselines.artifact(scope, active.id));
+    const comparison = compareScreenshots(baseline ?? undefined, result.png);
+    const analysis = diagnoseSafely(
+      baseline ?? undefined,
+      result.png,
+      comparison,
+      this.diagnose,
+    );
+    const evidence: JobResult['evidence'] = {
+      current:
+        uploadedFrame ??
+        (await this.artifacts.put(scope.organizationId, result.png)),
+    };
+    if (active)
+      evidence.baseline = {
+        digest: active.artifact_digest,
+        sizeBytes: active.artifact_bytes,
+      };
+    if (comparison.artifacts) {
+      for (const kind of ['diff', 'heatmap', 'overlay'] as const) {
+        evidence[kind] = await this.artifacts.put(
+          scope.organizationId,
+          comparison.artifacts[kind],
+        );
+      }
+    }
+    const baselineSnapshot =
+      result.snapshot &&
+      active &&
+      (await this.queue.ci.baselineSnapshot(scope, active.id));
+    const structure =
+      baselineSnapshot && result.snapshot
+        ? compareStructure(
+            await this.readSnapshot(scope, baselineSnapshot),
+            result.snapshot,
+            comparison.summary.regions,
+          )
+        : undefined;
+    return {
+      identity,
+      comparedBaselineId: active?.id ?? null,
+      capture: result.metadata,
+      comparison: comparison.summary,
+      structure,
+      analysis,
+      checks,
+      evidence,
+    };
   }
 }

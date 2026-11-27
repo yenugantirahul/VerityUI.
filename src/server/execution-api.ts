@@ -11,6 +11,7 @@ import {
 import { fixtureVariants, type FixtureVariant } from '../fixture/page.ts';
 import { ArtifactError, type ArtifactStore } from '../persistence/artifacts.ts';
 import { BaselineError, type Baselines } from '../persistence/baselines.ts';
+import { branchName } from '../verification/contract.ts';
 
 export interface ExecutionApi {
   token: string;
@@ -18,6 +19,7 @@ export interface ExecutionApi {
   queue: RunQueue;
   baselines: Baselines;
   artifacts: ArtifactStore;
+  publicOrigin?: string;
 }
 
 const uuid = {
@@ -56,7 +58,40 @@ function sendPng(reply: FastifyReply, png: Buffer) {
     .send(png);
 }
 
+export function registerExecutionErrorHandler(app: FastifyInstance) {
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof ExecutionError)
+      return reply.code(error.status).send({ error: error.message });
+    if (error instanceof BaselineError) {
+      const codes = {
+        forbidden: 403,
+        not_found: 404,
+        conflict: 409,
+        invalid_capture: 400,
+      };
+      return reply.code(codes[error.code]).send({ error: error.message });
+    }
+    if (error instanceof ArtifactError)
+      return reply.code(503).send({ error: 'Evidence storage is unavailable' });
+    if (
+      error instanceof Error &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number' &&
+      error.statusCode >= 400 &&
+      error.statusCode < 500
+    ) {
+      return reply.code(error.statusCode).send({ error: 'Invalid request' });
+    }
+    request.log.error(
+      { event: 'execution_api_error' },
+      'Execution API request failed',
+    );
+    return reply.code(503).send({ error: 'Execution service is unavailable' });
+  });
+}
+
 export function registerExecutionApi(app: FastifyInstance, api: ExecutionApi) {
+  registerExecutionErrorHandler(app);
   const expected = hash(api.token);
   const cookieName = 'deltaframe_session';
   const ttl = 8 * 60 * 60;
@@ -87,10 +122,9 @@ export function registerExecutionApi(app: FastifyInstance, api: ExecutionApi) {
     if (
       !['GET', 'HEAD'].includes(request.method) &&
       origin &&
-      origin !== `${request.protocol}://${request.host}`
-    ) {
+      origin !== (api.publicOrigin ?? `${request.protocol}://${request.host}`)
+    )
       return reply.code(403).send({ error: 'Request origin is not permitted' });
-    }
     if (
       request.method === 'POST' &&
       request.routeOptions.url?.endsWith('/session')
@@ -109,41 +143,10 @@ export function registerExecutionApi(app: FastifyInstance, api: ExecutionApi) {
       !authorization ||
       !/^Bearer \S+$/i.test(authorization) ||
       !validToken(authorization.slice(7))
-    ) {
+    )
       return reply
         .code(401)
         .send({ error: 'A valid local operator token is required' });
-    }
-  });
-
-  app.setErrorHandler((error, request, reply) => {
-    if (error instanceof ExecutionError)
-      return reply.code(error.status).send({ error: error.message });
-    if (error instanceof BaselineError) {
-      const codes = {
-        forbidden: 403,
-        not_found: 404,
-        conflict: 409,
-        invalid_capture: 400,
-      };
-      return reply.code(codes[error.code]).send({ error: error.message });
-    }
-    if (error instanceof ArtifactError)
-      return reply.code(503).send({ error: 'Evidence storage is unavailable' });
-    if (
-      error instanceof Error &&
-      'statusCode' in error &&
-      typeof error.statusCode === 'number' &&
-      error.statusCode >= 400 &&
-      error.statusCode < 500
-    ) {
-      return reply.code(error.statusCode).send({ error: 'Invalid request' });
-    }
-    request.log.error(
-      { event: 'execution_api_error' },
-      'Execution API request failed',
-    );
-    return reply.code(503).send({ error: 'Execution service is unavailable' });
   });
 
   app.get('/session', (request) =>
@@ -183,7 +186,7 @@ export function registerExecutionApi(app: FastifyInstance, api: ExecutionApi) {
           path: '/api/v1',
           httpOnly: true,
           sameSite: 'strict',
-          secure: request.protocol === 'https',
+          secure: Boolean(api.publicOrigin) || request.protocol === 'https',
           maxAge: ttl,
         })
         .send(description);
@@ -235,6 +238,80 @@ export function registerExecutionApi(app: FastifyInstance, api: ExecutionApi) {
   };
 
   app.get('/projects', (request) => queue.projects(actor(request)));
+  app.get<{ Params: Project }>(
+    '/projects/:projectId/metrics',
+    {
+      schema: { params: projectParams },
+    },
+    (request) => queue.metrics(scope(request, request.params.projectId)),
+  );
+
+  app.get<{ Params: Project }>(
+    '/projects/:projectId/ci-credentials',
+    {
+      schema: { params: projectParams },
+    },
+    (request) => queue.ci.list(scope(request, request.params.projectId)),
+  );
+
+  app.post<{
+    Params: Project;
+    Body: { label: string; baselineBranch: string };
+  }>(
+    '/projects/:projectId/ci-credentials',
+    {
+      schema: {
+        params: projectParams,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['label', 'baselineBranch'],
+          properties: {
+            label: {
+              type: 'string',
+              minLength: 1,
+              maxLength: 80,
+              pattern: '\\S',
+            },
+            baselineBranch: { type: 'string', minLength: 1, maxLength: 160 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const branch = branchName.safeParse(request.body.baselineBranch);
+      if (!branch.success)
+        throw new ExecutionError(400, 'Enter a valid baseline branch');
+      return reply
+        .code(201)
+        .send(
+          await queue.ci.issue(
+            scope(request, request.params.projectId),
+            request.body.label.trim(),
+            branch.data,
+          ),
+        );
+    },
+  );
+  app.delete<{ Params: Project & { credentialId: string } }>(
+    '/projects/:projectId/ci-credentials/:credentialId',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['projectId', 'credentialId'],
+          properties: { projectId: uuid, credentialId: uuid },
+        },
+      },
+    },
+    async (request, reply) => {
+      await queue.ci.revoke(
+        scope(request, request.params.projectId),
+        request.params.credentialId,
+      );
+      return reply.code(204).send();
+    },
+  );
   app.post<{ Body: { name: string } }>(
     '/projects',
     {

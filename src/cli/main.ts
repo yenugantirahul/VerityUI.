@@ -20,12 +20,12 @@ import { digestOf } from '../persistence/artifacts.ts';
 import { baselineIdentity } from '../persistence/baselines.ts';
 import { evaluateIntent, readIntent } from '../verification/intent.ts';
 import { createVisionAnalyzer } from '../verification/vision.ts';
+import { commitSha, sha256, snapshotSchema } from '../verification/contract.ts';
 import { applicationPath, readConfig, safeKey } from './config.ts';
 import { renderReport, type Report, type ReportResult } from './report.ts';
+import { uploadBundle } from './upload.ts';
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
-const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
-const commitSha = z.string().regex(/^[a-f0-9]{40}$/i);
 const referenceEntry = z.object({
   key: z.string().regex(safeKey),
   identity: sha256,
@@ -35,33 +35,6 @@ const referenceEntry = z.object({
   viewport: z.string().regex(safeKey).optional(),
 });
 type Reference = z.output<typeof referenceEntry>;
-const snapshotSchema = z.object({
-  version: z.literal(1),
-  truncated: z.boolean(),
-  nodes: z
-    .array(
-      z.object({
-        path: z.string().min(1).max(600),
-        tag: z.string().min(1).max(100),
-        component: z.string().max(80).optional(),
-        testId: z.string().max(80).optional(),
-        source: z.string().max(200).optional(),
-        role: z.string().max(80).optional(),
-        hidden: z.boolean(),
-        ariaHidden: z.boolean().default(false),
-        bounds: z.object({
-          x: z.number(),
-          y: z.number(),
-          width: z.number().nonnegative(),
-          height: z.number().nonnegative(),
-        }),
-        overflowX: z.boolean(),
-        overflowY: z.boolean(),
-        styles: z.record(z.string().max(80), z.string().max(200)),
-      }),
-    )
-    .max(5000),
-});
 
 async function loadReference(directory: string) {
   try {
@@ -233,6 +206,10 @@ async function execute() {
       ai: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
       api: { type: 'string' },
+      input: { type: 'string' },
+      branch: { type: 'string' },
+      key: { type: 'string' },
+      wait: { type: 'boolean' },
       project: { type: 'string' },
       run: { type: 'string' },
       job: { type: 'string' },
@@ -242,11 +219,12 @@ async function execute() {
   const [command] = positionals;
   if (values.help || positionals.length === 0) {
     console.log(
-      'verityui init | capture | verify | compare | report | review\n\n' +
+      'verityui init | capture | verify | compare | upload | report | review\n\n' +
         '  init     [--config verityui.config.json] [--base-url http://localhost:3000]\n' +
         '  capture [--config FILE] [--base-url URL] [--output DIR] [--commit SHA]\n' +
         '  verify  --reference DIR [--config FILE] [--base-url URL] [--output DIR] [--ai]\n' +
         '  compare --reference DIR --current DIR [--config FILE] [--output DIR] [--ai]\n' +
+        '  upload   --input DIR [--api URL] [--branch NAME] [--commit SHA] [--wait]\n' +
         '  report   --output DIR\n' +
         '  review  --project ID --run ID --job ID --action approve|reject [--api URL]',
     );
@@ -260,6 +238,7 @@ async function execute() {
       'run',
       'verify',
       'compare',
+      'upload',
       'report',
       'review',
     ].includes(command!)
@@ -267,6 +246,10 @@ async function execute() {
     throw new Error('Unknown command. Run verityui --help for usage.');
   if (command === 'review') {
     await review(values);
+    return;
+  }
+  if (command === 'upload') {
+    process.exitCode = await uploadBundle(values);
     return;
   }
   if (command === 'report') {

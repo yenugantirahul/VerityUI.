@@ -292,6 +292,19 @@ export class Baselines {
       )
         return version;
       if (action === 'reject' && version.status === 'rejected') return version;
+      if (action === 'approve') {
+        const { rowCount } = await client.query(
+          `SELECT 1 FROM baseline_versions b JOIN jobs j ON b.source_job_id = j.id
+           JOIN runs r ON r.id = j.run_id WHERE b.org_id = $1 AND b.project_id = $2
+           AND b.id = $3 AND r.variant = 'ci' AND r.branch <> r.baseline_branch`,
+          [scope.organizationId, scope.projectId, id],
+        );
+        if (rowCount)
+          throw new BaselineError(
+            'conflict',
+            'Approve a capture from the configured baseline branch',
+          );
+      }
       if (action === 'rollback') {
         if (version.status !== 'approved' || expectedActive !== active) {
           throw new BaselineError(

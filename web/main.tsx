@@ -1,9 +1,13 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Checkpoint, Evidence, RunQueue } from '../src/execution/queue.ts';
+import { api, apiRoot, errorText } from './api.ts';
+import { CiSettings } from './ci-settings.tsx';
 import { Brand, Landing } from './landing.tsx';
+import { ProjectOverview, type ProjectMetrics } from './project-overview.tsx';
 import './style.css';
 import './landing.css';
+import './workspace.css';
 
 type WorkspaceEntry = { id: string; name: string };
 type Session = { workspace: WorkspaceEntry; workspaces: WorkspaceEntry[] };
@@ -39,30 +43,19 @@ const variants = {
 const initialCheckpoints: Checkpoint[] = [
   { key: 'desktop', width: 1200, height: 800 },
 ];
-const apiRoot = '/api/v1';
-function errorText(error: unknown) {
-  return error instanceof Error ? error.message : 'Request failed';
+function runTitle(run: Run | Detail) {
+  return run.variant === 'ci'
+    ? (run.branch ?? 'CI capture')
+    : variants[run.variant];
 }
 
-async function api<T>(
-  path: string,
-  method = 'GET',
-  body?: unknown,
-  key?: string,
-): Promise<T> {
-  const headers: Record<string, string> = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (key) headers['Idempotency-Key'] = key;
-  const result = await fetch(`${apiRoot}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  if (result.status === 204) return undefined as T;
-  const payload = await result.json().catch(() => ({}));
-  if (!result.ok)
-    throw new Error(payload.error ?? 'The local API is unavailable');
-  return payload as T;
+function rememberRun(projectId: string, runId?: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('project', projectId);
+  if (runId) url.searchParams.set('run', runId);
+  else url.searchParams.delete('run');
+  url.hash = '';
+  window.history.replaceState(null, '', url);
 }
 
 function Status({ value }: { value: string }) {
@@ -79,6 +72,7 @@ function Status({ value }: { value: string }) {
     approved: 'Approved',
     rejected: 'Rejected',
     candidate: 'Review pending',
+    review: 'Review',
   };
   return (
     <span className={`status status-${value}`}>{labels[value] ?? value}</span>
@@ -229,10 +223,12 @@ function Review({
   projectId,
   run,
   report,
+  onDecision,
 }: {
   projectId: string;
   run: Detail;
   report: (message: string) => void;
+  onDecision: () => void;
 }) {
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Evidence | 'slider'>('current');
@@ -246,6 +242,7 @@ function Review({
   const analysis =
     result?.analysis?.state === 'available' ? result.analysis : null;
   const failures = result?.checks?.filter((check) => !check.passed) ?? [];
+  const canPromote = run.variant !== 'ci' || run.branch === run.baseline_branch;
   const path = `/projects/${projectId}/runs/${run.id}/jobs/${job?.id}`;
   useEffect(() => {
     if (!result) return;
@@ -274,6 +271,7 @@ function Review({
           { action },
         ),
       );
+      onDecision();
     } catch (error) {
       report(errorText(error));
     } finally {
@@ -314,8 +312,11 @@ function Review({
     <section className="panel review" aria-label="Run details">
       <div className="panel-heading">
         <div>
-          <h2>{variants[run.variant]}</h2>
-          <p className="muted">Run {run.id.slice(0, 8)}</p>
+          <h2>{runTitle(run)}</h2>
+          <p className="muted">
+            {run.variant === 'ci' ? 'CI capture' : 'Fixture run'} ·{' '}
+            <code>{(run.commit_sha ?? run.id).slice(0, 8)}</code>
+          </p>
         </div>
         <Status value={runStatus(run.jobs.map((item) => item.state))} />
       </div>
@@ -334,7 +335,15 @@ function Review({
               setFeedback(false);
             }}
           >
-            <span>{item.checkpoint.key}</span>
+            <span>
+              {item.checkpoint.route ?? item.checkpoint.key}
+              {item.checkpoint.route && (
+                <small>
+                  {item.checkpoint.width} × {item.checkpoint.height} ·{' '}
+                  {item.checkpoint.browser}
+                </small>
+              )}
+            </span>
             <Status value={item.result?.comparison.status ?? item.state} />
           </button>
         ))}
@@ -363,7 +372,14 @@ function Review({
                 </button>
               ))}
             </div>
-            <div className="image-frame">
+            <div
+              className="image-frame"
+              style={
+                {
+                  '--capture-width': `${result.capture.width}px`,
+                } as CSSProperties
+              }
+            >
               {view?.key === 'slider' ? (
                 <div className="wipe">
                   <img alt="Current screenshot" src={image('current')} />
@@ -399,6 +415,44 @@ function Review({
                 <span>Current</span>
               </label>
             )}
+            {result.structure &&
+              (result.structure.changes.length > 0 ||
+                result.structure.incomplete) && (
+                <details className="structural-findings">
+                  <summary>
+                    Element changes{' '}
+                    <span>{result.structure.changes.length}</span>
+                  </summary>
+                  {result.structure.incomplete && (
+                    <p className="muted">
+                      The captured structure exceeded the evidence budget.
+                    </p>
+                  )}
+                  <ul>
+                    {result.structure.changes.map((change) => (
+                      <li key={change.id}>
+                        <strong>{change.component ?? change.element}</strong>
+                        {change.source && (
+                          <small>
+                            <code>{change.source}</code>
+                          </small>
+                        )}
+                        <dl>
+                          {change.properties.map(({ name, before, after }) => (
+                            <div key={name}>
+                              <dt>{name}</dt>
+                              <dd>
+                                <code>{String(before)}</code> →{' '}
+                                <code>{String(after)}</code>
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
           </div>
           <aside className="findings">
             <h3>Comparison</h3>
@@ -491,13 +545,20 @@ function Review({
                 </p>
               ) : (
                 <>
-                  <button
-                    disabled={working}
-                    className="primary"
-                    onClick={() => void decide('approve')}
-                  >
-                    Approve baseline
-                  </button>
+                  {canPromote ? (
+                    <button
+                      disabled={working}
+                      className="primary"
+                      onClick={() => void decide('approve')}
+                    >
+                      Approve baseline
+                    </button>
+                  ) : (
+                    <p>
+                      To promote a baseline, review a capture from{' '}
+                      <code>{run.baseline_branch}</code>.
+                    </p>
+                  )}
                   <button
                     disabled={working}
                     className="secondary"
@@ -528,7 +589,9 @@ function Workspace({
   const [projectId, setProjectId] = useState('');
   const [name, setName] = useState('');
   const [creating, setCreating] = useState(false);
-  const [section, setSection] = useState<'history' | 'suite'>('history');
+  const [section, setSection] = useState<'history' | 'suite' | 'ci'>('history');
+  const [filter, setFilter] = useState('all');
+  const [metrics, setMetrics] = useState<ProjectMetrics | null>(null);
   const [suite, setSuite] = useState<Suite | null>(null);
   const [history, setHistory] = useState<Run[]>([]);
   const [runId, setRunId] = useState('');
@@ -545,8 +608,13 @@ function Workspace({
     api<Project[]>('/projects')
       .then((items) => {
         if (live) {
+          const link = new URLSearchParams(window.location.search);
+          const linked = items.find(({ id }) => id === link.get('project'));
+          const linkedRun = link.get('run');
           setProjects(items);
-          setProjectId(items[0]?.id ?? '');
+          setProjectId(linked?.id ?? items[0]?.id ?? '');
+          if (linked && linkedRun && /^[0-9a-f-]{36}$/i.test(linkedRun))
+            setRunId(linkedRun);
         }
       })
       .catch((error: unknown) => {
@@ -563,21 +631,38 @@ function Workspace({
   useEffect(() => {
     if (!projectId) return;
     let live = true;
-    Promise.all([
-      api<{ suite: Suite | null }>(`${projectPath}/suite`),
-      api<Run[]>(`${projectPath}/runs`),
-    ])
-      .then(([configuration, runs]) => {
+    let loadingRuns = false;
+    async function refreshRuns(initial = false) {
+      if (loadingRuns || (!initial && document.visibilityState !== 'visible'))
+        return;
+      loadingRuns = true;
+      try {
+        const [runs, projectMetrics] = await Promise.all([
+          api<Run[]>(`${projectPath}/runs`),
+          api<ProjectMetrics>(`${projectPath}/metrics`),
+        ]);
         if (!live) return;
-        setSuite(configuration.suite);
         setHistory(runs);
+        setMetrics(projectMetrics);
         setRunId((selected) => selected || runs[0]?.id || '');
+      } catch (error) {
+        if (live && initial) setIssue(errorText(error));
+      } finally {
+        loadingRuns = false;
+      }
+    }
+    api<{ suite: Suite | null }>(`${projectPath}/suite`)
+      .then(({ suite }) => {
+        if (live) setSuite(suite);
       })
       .catch((error: unknown) => {
         if (live) setIssue(errorText(error));
       });
+    void refreshRuns(true);
+    const timer = window.setInterval(() => void refreshRuns(), 8000);
     return () => {
       live = false;
+      window.clearInterval(timer);
     };
   }, [projectId, projectPath, refresh]);
 
@@ -617,11 +702,14 @@ function Workspace({
   function selectProject(id: string) {
     setProjectId(id);
     setHistory([]);
+    setMetrics(null);
+    setFilter('all');
     setSuite(null);
     setRunId('');
     setDetail(null);
     setSection('history');
     setIssue('');
+    rememberRun(id);
   }
   async function createProject(event: FormEvent) {
     event.preventDefault();
@@ -669,6 +757,7 @@ function Workspace({
         crypto.randomUUID(),
       );
       setRunId(run.id);
+      rememberRun(projectId, run.id);
       setDetail(null);
       setRefresh((value) => value + 1);
     } catch (error) {
@@ -699,11 +788,56 @@ function Workspace({
   const running = detail?.jobs.some(
     (job) => job.state === 'running' || job.state === 'queued',
   );
+  const visibleRuns = history.filter((run) =>
+    filter === 'review'
+      ? run.attention
+      : filter === 'ci'
+        ? run.variant === 'ci'
+        : true,
+  );
+  const hasCiRuns = history.some(({ variant }) => variant === 'ci');
+  const fixtureControls = (
+    <form className="panel run-controls" onSubmit={submitRun}>
+      <label>
+        Fixture variant
+        <select
+          value={variant}
+          onChange={(event) => setVariant(event.target.value)}
+        >
+          {Object.entries(variants).map(([key, value]) => (
+            <option key={key} value={key}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button className="primary" disabled={!suite || busy}>
+        Start run
+      </button>
+      {!suite && (
+        <button
+          type="button"
+          className="text-button"
+          onClick={() => setSection('suite')}
+        >
+          Configure suite
+        </button>
+      )}
+    </form>
+  );
 
   return (
     <div className="shell">
       <header className="header">
-        <Brand />
+        <div className="workspace-breadcrumb">
+          <span>Workspace</span>
+          {project && (
+            <>
+              <span aria-hidden="true">/</span>
+              <strong>{project.name}</strong>
+            </>
+          )}
+        </div>
         <div className="workspace-controls">
           {session.workspaces.length > 1 ? (
             <select
@@ -727,6 +861,9 @@ function Workspace({
         </div>
       </header>
       <aside className="sidebar">
+        <div className="sidebar-brand">
+          <Brand />
+        </div>
         <div className="side-heading">
           <h2>Projects</h2>
           <button
@@ -790,15 +927,23 @@ function Workspace({
           <>
             <div className="page-heading">
               <div>
-                <p className="eyebrow">Project</p>
                 <h1>{project.name}</h1>
+                <p className="muted">Visual verification and baseline review</p>
               </div>
-              {running && (
+              {running ? (
                 <button className="secondary" onClick={() => void cancel()}>
                   Cancel run
                 </button>
+              ) : (
+                <button
+                  className="secondary connect-button"
+                  onClick={() => setSection('ci')}
+                >
+                  Connect CI
+                </button>
               )}
             </div>
+            <ProjectOverview metrics={metrics} />
             <div className="page-tabs">
               <button
                 aria-pressed={section === 'history'}
@@ -812,8 +957,16 @@ function Workspace({
               >
                 Test suite
               </button>
+              <button
+                aria-pressed={section === 'ci'}
+                onClick={() => setSection('ci')}
+              >
+                CI settings
+              </button>
             </div>
-            {section === 'suite' ? (
+            {section === 'ci' ? (
+              <CiSettings key={projectId} projectPath={projectPath} />
+            ) : section === 'suite' ? (
               <SuiteEditor
                 key={suite?.id ?? 'new'}
                 suite={suite}
@@ -821,41 +974,26 @@ function Workspace({
               />
             ) : (
               <>
-                <form className="panel run-controls" onSubmit={submitRun}>
-                  <label>
-                    Fixture variant
-                    <select
-                      value={variant}
-                      onChange={(event) => setVariant(event.target.value)}
-                    >
-                      {Object.entries(variants).map(([key, value]) => (
-                        <option key={key} value={key}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button className="primary" disabled={!suite || busy}>
-                    Start run
-                  </button>
-                  {!suite && (
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => setSection('suite')}
-                    >
-                      Configure suite
-                    </button>
-                  )}
-                </form>
+                {!hasCiRuns && fixtureControls}
                 <div className="run-layout">
                   <section className="panel history" aria-label="Runs">
                     <div className="panel-heading">
                       <h2>Runs</h2>
-                      <span className="count">{history.length}</span>
+                      <span className="count">{visibleRuns.length}</span>
                     </div>
-                    {history.length ? (
-                      history.map((run) => (
+                    <label className="run-filter">
+                      <span className="sr-only">Filter runs</span>
+                      <select
+                        value={filter}
+                        onChange={(event) => setFilter(event.target.value)}
+                      >
+                        <option value="all">All sources</option>
+                        <option value="review">Needs review</option>
+                        <option value="ci">CI runs</option>
+                      </select>
+                    </label>
+                    {visibleRuns.length ? (
+                      visibleRuns.map((run) => (
                         <button
                           className="run-row"
                           aria-current={run.id === runId ? 'true' : undefined}
@@ -864,25 +1002,40 @@ function Workspace({
                             if (run.id !== runId) {
                               setRunId(run.id);
                               setDetail(null);
+                              rememberRun(projectId, run.id);
                             }
                           }}
                         >
                           <span>
-                            {variants[run.variant]}
+                            <strong>{runTitle(run)}</strong>
                             <small>
-                              {new Date(run.created_at).toLocaleTimeString(
+                              {new Date(run.created_at).toLocaleString(
                                 undefined,
-                                { hour: 'numeric', minute: '2-digit' },
+                                {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                },
                               )}{' '}
-                              · {run.id.slice(0, 8)}
+                              · {run.variant === 'ci' ? 'CI' : 'Demo'}
                             </small>
                           </span>
-                          <Status value={runStatus(run.states)} />
+                          <Status
+                            value={
+                              run.attention &&
+                              runStatus(run.states) === 'completed'
+                                ? 'review'
+                                : runStatus(run.states)
+                            }
+                          />
                         </button>
                       ))
                     ) : (
                       <p className="empty">
-                        Run this suite to capture evidence.
+                        {filter === 'all'
+                          ? 'CI submissions and demo captures appear here.'
+                          : 'No runs match this filter.'}
                       </p>
                     )}
                   </section>
@@ -892,6 +1045,7 @@ function Workspace({
                       projectId={projectId}
                       run={detail}
                       report={setIssue}
+                      onDecision={() => setRefresh((value) => value + 1)}
                     />
                   ) : (
                     <div className="panel empty" aria-live="polite">
@@ -901,6 +1055,12 @@ function Workspace({
                     </div>
                   )}
                 </div>
+                {hasCiRuns && (
+                  <details className="panel demo-controls">
+                    <summary>Run a demo fixture</summary>
+                    {fixtureControls}
+                  </details>
+                )}
               </>
             )}
           </>
@@ -910,8 +1070,8 @@ function Workspace({
               {loading ? 'Loading workspace…' : 'Visual review workspace'}
             </h1>
             <p className="muted">
-              Create a project to capture a dashboard and approve its first
-              baseline.
+              Create a project to connect your CI, inspect captures, and review
+              the first baseline.
             </p>
             <button className="primary" onClick={() => setCreating(true)}>
               New project
@@ -968,7 +1128,7 @@ function App() {
       signIn={
         <form className="login-card" onSubmit={login}>
           <h2>{checking ? 'Checking session…' : 'Sign in'}</h2>
-          <p className="muted">Use your local workspace operator token.</p>
+          <p className="muted">Enter your workspace operator token.</p>
           <label>
             Operator token
             <input

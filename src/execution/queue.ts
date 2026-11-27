@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import type { Analysis } from '../analysis/diagnose.ts';
 import type { CaptureResult } from '../capture/engine.ts';
 import type { ComparisonSummary } from '../compare/compare.ts';
+import type { StructuralEvidence } from '../compare/structure.ts';
 import type { FixtureVariant } from '../fixture/page.ts';
 import type { DashboardCheck } from '../fixture/assertions.ts';
 import { digestOf, type ArtifactRef } from '../persistence/artifacts.ts';
@@ -13,6 +14,10 @@ import {
   type Role,
 } from '../persistence/baselines.ts';
 import { transaction } from '../persistence/database.ts';
+import { CiIngress, type UploadedEvidence } from './ci.ts';
+import { ExecutionError } from './errors.ts';
+
+export { ExecutionError } from './errors.ts';
 
 export interface Checkpoint {
   key: string;
@@ -20,6 +25,8 @@ export interface Checkpoint {
   height: number;
   selector?: string;
   masks?: string[];
+  route?: string;
+  browser?: CaptureResult['metadata']['browser'];
 }
 
 export type JobState =
@@ -32,6 +39,7 @@ export interface JobResult {
   comparedBaselineId: string | null;
   capture: CaptureResult['metadata'];
   comparison: ComparisonSummary;
+  structure?: StructuralEvidence;
   analysis?: Analysis;
   checks?: DashboardCheck[];
   evidence: Partial<Record<Evidence, ArtifactRef>>;
@@ -54,9 +62,11 @@ interface RunRequest {
 
 interface Run {
   id: string;
-  suite_id: string;
-  variant: FixtureVariant;
+  suite_id: string | null;
+  variant: FixtureVariant | 'ci';
   commit_sha: string | null;
+  branch: string | null;
+  baseline_branch: string | null;
   created_at: Date;
 }
 
@@ -68,29 +78,23 @@ export interface Claim {
   org_id: string;
   project_id: string;
   actor_id: string;
-  variant: FixtureVariant;
-}
-
-export class ExecutionError extends Error {
-  readonly status: 400 | 404 | 409 | 429;
-
-  constructor(status: ExecutionError['status'], message: string) {
-    super(message);
-    this.name = 'ExecutionError';
-    this.status = status;
-  }
+  variant: FixtureVariant | 'ci';
+  uploaded_evidence: UploadedEvidence | null;
 }
 
 const projectKey = 'org_id = $1 AND project_id = $2';
-const runColumns = 'id, suite_id, variant, commit_sha, created_at';
+const runColumns =
+  'id, suite_id, variant, commit_sha, created_at, branch, baseline_branch';
 const jobColumns = 'id, checkpoint, state, attempts, failure, result';
 const canRun = ['admin', 'developer', 'reviewer'] as const;
 
 export class RunQueue {
   private readonly pool: Pool;
+  readonly ci: CiIngress;
 
   constructor(pool: Pool) {
     this.pool = pool;
+    this.ci = new CiIngress(pool);
   }
 
   async workspaces(actorId: string) {
@@ -217,8 +221,24 @@ export class RunQueue {
             409,
             'Idempotency key already belongs to a different request',
           );
-        const { id, suite_id, variant, commit_sha, created_at } = existing;
-        return { id, suite_id, variant, commit_sha, created_at };
+        const {
+          id,
+          suite_id,
+          variant,
+          commit_sha,
+          created_at,
+          branch,
+          baseline_branch,
+        } = existing;
+        return {
+          id,
+          suite_id,
+          variant,
+          commit_sha,
+          created_at,
+          branch,
+          baseline_branch,
+        };
       }
       const quota = await client.query<{ count: number }>(
         `
@@ -268,15 +288,68 @@ export class RunQueue {
   async list(scope: BaselineScope, limit: number, before?: string) {
     await authorizeProject(this.pool, scope);
     return (
-      await this.pool.query<Run & { states: JobState[] }>(
+      await this.pool.query<Run & { states: JobState[]; attention: boolean }>(
         `
-      SELECT ${runColumns}, ARRAY(SELECT state FROM jobs WHERE run_id = runs.id ORDER BY ordinal) AS states
+      SELECT ${runColumns}, ARRAY(SELECT state FROM jobs WHERE run_id = runs.id ORDER BY ordinal) AS states,
+        EXISTS(SELECT 1 FROM jobs j LEFT JOIN baseline_versions b ON b.source_job_id = j.id
+          WHERE j.run_id = runs.id AND j.state = 'completed'
+          AND (j.result->'comparison'->>'status' <> 'matched'
+            OR j.result->'structure'->>'incomplete' = 'true'
+            OR jsonb_array_length(COALESCE(j.result->'structure'->'changes', '[]'::jsonb)) > 0)
+          AND COALESCE(b.status, 'candidate') = 'candidate') AS attention
       FROM runs WHERE ${projectKey} AND ($3::uuid IS NULL OR sequence < (SELECT sequence FROM runs WHERE ${projectKey} AND id = $3))
       ORDER BY sequence DESC LIMIT $4
     `,
         [scope.organizationId, scope.projectId, before ?? null, limit],
       )
     ).rows;
+  }
+
+  async metrics(scope: BaselineScope) {
+    await authorizeProject(this.pool, scope);
+    const { rows } = await this.pool.query<{
+      runs: number;
+      checkpoints: number;
+      completed: number;
+      review_required: number;
+      failed: number;
+      cancelled: number;
+      p95_ms: number | null;
+      p95_queue_ms: number | null;
+      timed_checkpoints: number;
+    }>(
+      `WITH recent AS (
+         SELECT id, created_at FROM runs WHERE ${projectKey} AND created_at >= now() - interval '7 days'
+       )
+       SELECT (SELECT count(*)::int FROM recent) AS runs,
+         count(*)::int AS checkpoints,
+         count(*) FILTER (WHERE j.state = 'completed')::int AS completed,
+         count(*) FILTER (WHERE j.state = 'failed')::int AS failed,
+         count(*) FILTER (WHERE j.state = 'cancelled')::int AS cancelled,
+         count(*) FILTER (WHERE j.state = 'completed'
+           AND (j.result->'comparison'->>'status' <> 'matched'
+             OR j.result->'structure'->>'incomplete' = 'true'
+             OR jsonb_array_length(COALESCE(j.result->'structure'->'changes', '[]'::jsonb)) > 0)
+           AND COALESCE(b.status, 'candidate') = 'candidate')::int AS review_required,
+         count(j.finished_at) FILTER (WHERE j.state = 'completed')::int AS timed_checkpoints,
+         round(percentile_cont(0.95) WITHIN GROUP (
+           ORDER BY extract(epoch FROM (j.finished_at - recent.created_at)) * 1000
+         ) FILTER (WHERE j.state = 'completed'))::int AS p95_ms,
+         round(percentile_cont(0.95) WITHIN GROUP (
+           ORDER BY extract(epoch FROM (j.started_at - recent.created_at)) * 1000
+         ) FILTER (WHERE j.state = 'completed'))::int AS p95_queue_ms
+       FROM recent JOIN jobs j ON j.run_id = recent.id
+       LEFT JOIN baseline_versions b ON b.source_job_id = j.id`,
+      [scope.organizationId, scope.projectId],
+    );
+    return rows[0]!;
+  }
+
+  async ready() {
+    const result = await this.pool.query<{ ready: boolean }>(
+      "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE name = '004_ci_ingestion.sql') AS ready",
+    );
+    return Boolean(result.rows[0]?.ready);
   }
 
   async detail(scope: BaselineScope, id: string) {
@@ -299,7 +372,7 @@ export class RunQueue {
       await authorizeProject(client, scope, canRun);
       await client.query(
         `
-        UPDATE jobs SET state = 'cancelled', lease_id = NULL, lease_until = NULL
+        UPDATE jobs SET state = 'cancelled', lease_id = NULL, lease_until = NULL, finished_at = now()
         WHERE run_id = (SELECT id FROM runs WHERE ${projectKey} AND id = $3) AND state IN ('queued', 'running')
       `,
         [scope.organizationId, scope.projectId, id],
@@ -343,7 +416,7 @@ export class RunQueue {
 
   async claim() {
     await this.pool.query(`
-      UPDATE jobs SET state = 'failed', failure = 'lease_expired', lease_id = NULL, lease_until = NULL
+      UPDATE jobs SET state = 'failed', failure = 'lease_expired', lease_id = NULL, lease_until = NULL, finished_at = now()
       WHERE state = 'running' AND lease_until <= now() AND attempts = 3
     `);
     const { rows } = await this.pool.query<Claim>(
@@ -354,10 +427,11 @@ export class RunQueue {
         ORDER BY available_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
       )
       UPDATE jobs SET state = 'running', attempts = attempts + 1,
-        lease_id = $1, lease_until = now() + interval '45 seconds', failure = NULL
+        lease_id = $1, lease_until = now() + interval '45 seconds', failure = NULL,
+        started_at = COALESCE(started_at, now())
       FROM next_job, runs WHERE jobs.id = next_job.id AND runs.id = jobs.run_id
       RETURNING jobs.id, jobs.checkpoint, jobs.lease_id, jobs.attempts, runs.org_id,
-        runs.project_id, runs.actor_id, runs.variant
+        runs.project_id, runs.actor_id, runs.variant, jobs.uploaded_evidence
     `,
       [randomUUID()],
     );
@@ -367,7 +441,7 @@ export class RunQueue {
   async complete(claim: Claim, result: JobResult) {
     const update = await this.pool.query(
       `
-      UPDATE jobs SET state = 'completed', result = $3, lease_id = NULL, lease_until = NULL
+      UPDATE jobs SET state = 'completed', result = $3, lease_id = NULL, lease_until = NULL, finished_at = now()
       WHERE id = $1 AND lease_id = $2 AND state = 'running' AND lease_until > now()
     `,
       [claim.id, claim.lease_id, result],
@@ -380,6 +454,7 @@ export class RunQueue {
     const update = await this.pool.query(
       `
       UPDATE jobs SET state = $3, failure = $4, lease_id = NULL, lease_until = NULL,
+        finished_at = CASE WHEN $3 = 'failed' THEN now() END,
         available_at = now() + (attempts * interval '1 second')
       WHERE id = $1 AND lease_id = $2 AND state = 'running' AND lease_until > now()
     `,

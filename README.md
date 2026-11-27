@@ -2,6 +2,17 @@
 
 VerityUI verifies frontend changes before merge. Capture a baseline and a candidate in your own environment, then review deterministic pixel diffs, element-level changes and the declared scope of the change.
 
+## Connect CI to a project
+
+Open a project in the review workspace, select **CI settings**, and create a project credential. Add the returned secret as `VERITYUI_CI_TOKEN` in your CI environment. Set `VERITYUI_API_URL` to the workspace origin and run the capture and upload commands after your application starts.
+
+```sh
+npx verityui capture --output captures
+npx verityui upload --input captures --wait
+```
+
+The upload prints a deep link to the run. Review it in the dashboard alongside seven-day project metrics. See the [deployment and CI guide](docs/operations.md) for branch trust, first baseline setup, and API health and metrics.
+
 ## Verify your application
 
 Install Node.js 24.20.0 and npm 11. Run these commands from the repository root with your application listening on port 3000. In Windows PowerShell, use `npm.cmd` and `npx.cmd` if script execution policy blocks npm's PowerShell wrappers.

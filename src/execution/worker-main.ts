@@ -8,6 +8,11 @@ const controller = new AbortController();
 process.once('SIGINT', () => controller.abort());
 process.once('SIGTERM', () => controller.abort());
 try {
+  if (!(await runtime.queue.ready()))
+    throw new Error(
+      'Apply the VerityUI database migrations before starting the worker',
+    );
+  await runtime.artifacts.ready();
   await new Worker(runtime.queue, runtime.baselines, runtime.artifacts).run(
     controller.signal,
     (event) => {

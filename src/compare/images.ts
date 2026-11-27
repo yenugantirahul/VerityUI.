@@ -16,7 +16,10 @@ export class InvalidImageError extends Error {
   }
 }
 
-export function readImage(png: Buffer) {
+export function readImageSize(
+  png: Buffer,
+  maxPixels = maxCapturePixels,
+): ImageSize {
   if (
     png.length < 33 ||
     png.length > maxPngBytes ||
@@ -33,11 +36,16 @@ export function readImage(png: Buffer) {
   }
   const width = png.readUInt32BE(16);
   const height = png.readUInt32BE(20);
-  if (width === 0 || height === 0 || width * height > maxCapturePixels) {
+  if (width === 0 || height === 0 || width * height > maxPixels) {
     throw new InvalidImageError(
       'PNG dimensions exceed the comparison pixel budget.',
     );
   }
+  return { width, height };
+}
+
+export function readImage(png: Buffer) {
+  const { width, height } = readImageSize(png);
   try {
     const image = PNG.sync.read(png, { checkCRC: true });
     if (

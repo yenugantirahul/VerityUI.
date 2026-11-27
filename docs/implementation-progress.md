@@ -12,7 +12,9 @@
 | Run on pull requests                        | Repository workflow captures both revisions with one toolchain and retains evidence for review                                        |
 | Review persisted runs                       | Local analytics workspace with PostgreSQL, a separate worker and transactional baseline review                                        |
 
-The current alpha centers on customer-side capture and local or CI-generated reports. Repository installation via a GitHub App, hosted artifact ingestion and storage, merged-commit baseline promotion, source-map and AST attribution, agent repair loops and billing are later milestones in the blueprint.
+CI captures can also enter the self-hosted workspace through project-scoped credentials. The worker compares uploaded PNG and DOM evidence, and reviewers can promote captures from the project's configured baseline branch. The dashboard displays measured seven-day run, review, completion and latency signals. See the [operations guide](operations.md).
+
+Repository installation via a GitHub App, independent hosted artifact storage, verified merge provenance, source-map and AST attribution, agent repair loops and billing are later milestones in the blueprint.
 
 ## Deltaframe foundation
 
